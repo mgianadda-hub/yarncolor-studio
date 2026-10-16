@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { Lock, LoaderCircle } from "lucide-react";
 
 export default function LoginForm() {
   const searchParams = useSearchParams();
@@ -31,9 +32,12 @@ export default function LoginForm() {
 
   return (
     <form onSubmit={onSubmit} className="card" style={{ display: "grid", gap: 12 }}>
-      <label htmlFor="password">Password</label>
+      <label htmlFor="password" className="field-label" style={{ marginBottom: 0 }}>
+        <Lock size={16} aria-hidden="true" /> Password
+      </label>
       <input
         id="password"
+        className="input"
         type="password"
         autoComplete="current-password"
         autoFocus
@@ -41,8 +45,14 @@ export default function LoginForm() {
         onChange={(e) => setPassword(e.target.value)}
       />
       {error && <p className="error" style={{ margin: 0 }}>{error}</p>}
-      <button type="submit" disabled={pending || !password}>
-        {pending ? "Verifica…" : "Accedi"}
+      <button type="submit" className="btn btn-primary btn-block" disabled={pending || !password}>
+        {pending ? (
+          <>
+            <LoaderCircle size={18} className="spin" aria-hidden="true" /> Verifica…
+          </>
+        ) : (
+          "Accedi"
+        )}
       </button>
     </form>
   );
