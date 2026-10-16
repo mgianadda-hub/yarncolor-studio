@@ -19,5 +19,6 @@ export function validateUploads(master: unknown, destination: unknown): string |
 }
 
 export function formatMB(bytes: number): string {
+  if (bytes < 100 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1).replace(".", ",")} MB`;
 }
