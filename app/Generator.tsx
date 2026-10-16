@@ -18,10 +18,17 @@ type Result =
   | { status: "ok"; url: string; seconds: number }
   | { status: "error"; error: string };
 
-/** Nome del file scaricato: nome del master senza estensione + _1, _2, _3. */
-function downloadName(masterName: string, index: number): string {
-  const base = masterName.replace(/\.[^.]+$/, "") || "immagine";
-  return `${base}_${index + 1}.jpg`;
+function baseName(fileName: string): string {
+  return fileName.replace(/\.[^.]+$/, "");
+}
+
+/**
+ * Nome del file scaricato: <master>-<destinazione>.jpg; con più immagini si aggiunge
+ * -1, -2, -3 (es. gomitolo_mohair-rosso-2.jpg).
+ */
+function downloadName(masterName: string, destinationName: string, index: number, total: number) {
+  const base = [baseName(masterName), baseName(destinationName)].filter(Boolean).join("-") || "immagine";
+  return total > 1 ? `${base}-${index + 1}.jpg` : `${base}.jpg`;
 }
 
 async function generateOne(
@@ -256,14 +263,14 @@ export default function Generator({ defaultPrompt }: { defaultPrompt: string }) 
                   Generazione in corso… {Math.round((Date.now() - r.startedAt) / 1000)} s
                 </div>
               )}
-              {r.status === "ok" && master && (
+              {r.status === "ok" && master && destination && (
                 <>
                   <a href={r.url} target="_blank" rel="noreferrer">
                     <img className="result" src={r.url} alt={`Risultato ${i + 1}`} />
                   </a>
                   <div className="row-between">
                     <span className="muted small">Generata in {r.seconds} s</span>
-                    <a className="button" href={r.url} download={downloadName(master.file.name, i)}>
+                    <a className="button" href={r.url} download={downloadName(master.file.name, destination.file.name, i, results.length)}>
                       Scarica
                     </a>
                   </div>

@@ -37,9 +37,10 @@ Limiti dei modelli: lati multipli di 16, rapporto massimo 3:1, massimo 3840×216
 1. Carica l'immagine master e l'immagine destinazione (JPG, PNG o WebP, massimo 4 MB in totale).
    L'app mostra la dimensione con cui verrà generata l'immagine.
 2. Il prompt di default è precompilato e modificabile; le modifiche valgono solo per la generazione in corso.
-3. Scegli il modello (default `gpt-image-2`) e 1 o 3 immagini: ogni immagine è una chiamata separata
+3. Scegli il modello (default `gpt-image-2.5-sunburst`) e 1 o 3 immagini: ogni immagine è una chiamata separata
    che parte sempre da master e destinazione.
-4. Ogni risultato si scarica come `<nome master>_1.jpg`, `_2.jpg`, `_3.jpg`.
+4. Ogni risultato si scarica come `<nome master>-<nome destinazione>.jpg`; con 3 immagini si aggiunge
+   `-1`, `-2`, `-3` (es. `gomitolo_mohair-rosso-2.jpg`).
 
 ## Sviluppo
 
