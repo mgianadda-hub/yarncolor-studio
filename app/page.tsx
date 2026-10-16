@@ -18,9 +18,9 @@ export default async function HomePage() {
           </div>
         </div>
         <form action="/api/logout" method="post">
-          <button type="submit" className="btn btn-outline">
+          <button type="submit" className="btn btn-outline" aria-label="Esci">
             <LogOut size={18} aria-hidden="true" />
-            Esci
+            <span className="btn-label">Esci</span>
           </button>
         </form>
       </header>

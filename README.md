@@ -5,6 +5,8 @@ di un altro gomitolo (immagine **destinazione**) tramite l'endpoint di image edi
 
 App Next.js pensata per il deploy su Vercel (piano Hobby).
 
+Le decisioni di progetto (parametri API, modelli, interfaccia, deploy) sono raccolte in [`CLAUDE.md`](CLAUDE.md).
+
 ## Configurazione
 
 | File | Contenuto |

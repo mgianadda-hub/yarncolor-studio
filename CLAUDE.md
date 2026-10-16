@@ -1,0 +1,161 @@
+# YarnColor Studio — decisioni di progetto
+
+App Next.js (App Router, TypeScript) pubblicata su Vercel. Applica alla foto di un gomitolo
+(**immagine master**) il colore del filato di un'altra immagine (**immagine destinazione**, un dettaglio
+del filato) tramite l'endpoint di image edit di OpenAI. L'app **non elabora le immagini**: le inoltra così
+come sono e mostra il risultato.
+
+> **Tieni aggiornato questo file.** Ogni volta che con l'utente si prende una nuova decisione
+> (parametri, comportamento, interfaccia, deploy), aggiorna la sezione relativa nello stesso commit della modifica.
+> Le decisioni più recenti dell'utente prevalgono su quelle precedenti: in caso di dubbio, chiedi.
+
+## Parametri API
+
+- Endpoint: `POST /v1/images/edits` tramite l'SDK ufficiale `openai` (`client.images.edit`), in `lib/openai-edit.ts`.
+- `image`: sempre **[master, destinazione]**, in quest'ordine.
+- `quality: "high"`.
+- Output: `output_format: "jpeg"`, `output_compression: 80`.
+- `input_fidelity`: **non va passato** (per gpt-image-2 la documentazione dice di ometterlo).
+- `n: 1`: **una immagine per chiamata**. Scegliendo 3 immagini il browser fa **3 chiamate in parallelo**
+  a `/api/generate`, tutte partendo da master e destinazione.
+- La route `/api/generate` restituisce il JPEG in binario (`image/jpeg`, header `X-Output-Size`),
+  `maxDuration = 300` (limite del piano Hobby). Il client OpenAI non fa retry automatici (`maxRetries: 0`).
+- I valori stanno in `config/app.config.ts` (`quality`, `outputFormat`, `outputCompression`).
+
+## Modelli
+
+- Preselezionato: **`gpt-image-2.5-sunburst`** (più veloce e risultati migliori nei test).
+- Ordine nel selettore (con la nota mostrata accanto):
+  1. `gpt-image-2.5-sunburst` — "default, più dettaglio"
+  2. `gpt-image-2.5-flare` — "più veloce"
+  3. `gpt-image-2`
+- Definiti in `config/app.config.ts` (`models`, `defaultModel`); la route accetta solo questi.
+- Smoke test reale (anteprima Vercel, master 1536×1024 → 1504×1008): sunburst ~30 s, flare ~17 s,
+  gpt-image-2 ~75 s; JPEG ~0,2 MB.
+
+## Dimensione output
+
+- Proporzionale al master: **lato lungo 1504 px** (`outputLongSide` in `config/app.config.ts`),
+  lato corto proporzionale **arrotondato al multiplo di 16 più vicino**. Master quadrato → 1504×1504.
+- Le dimensioni del master si leggono dall'intestazione del file (`image-size`), senza modificarlo;
+  l'orientamento EXIF viene applicato come fa il browser.
+- Limiti dei modelli (uguali per i tre, da SDK `openai` 7.34.0): lati multipli di 16, rapporto massimo 3:1,
+  massimo 3840×2160, oltre 2560×1440 la risoluzione è "experimental".
+- Se il master supera i limiti (es. rapporto oltre 3:1) l'app mostra un **messaggio chiaro** e non genera.
+- Logica in `lib/output-size.ts`, usata sia dal browser (per mostrare la size) sia dal server (che la ricalcola).
+
+## Prompt
+
+- Il default è in **`config/default-prompt.txt`**: **non va modificato senza richiesta esplicita dell'utente**.
+- Nell'interfaccia è caricato in un campo di testo modificabile; le modifiche valgono **solo per la generazione
+  in corso** (non vengono salvate). Il pulsante **"Ripristina"** compare quando il prompt è stato modificato.
+- Limite OpenAI: 32.000 caratteri (controllato dalla route).
+
+## Input
+
+- Formati: JPG, PNG, WebP. Peso massimo complessivo dei due file: **4 MB** (Vercel accetta richieste fino a ~4,5 MB).
+- Gli input vanno direttamente alla route come multipart; nessun Vercel Blob.
+
+## File scaricati
+
+- Nome: **`<nome master>-<nome destinazione>.jpg`** (senza estensioni originali),
+  es. `gomitolo_mohair-rosso.jpg`.
+- Con 3 immagini si aggiunge **`-1`, `-2`, `-3`**: `gomitolo_mohair-rosso-1.jpg`, ecc.
+- Nomi e "Riprova" usano gli input dell'**ultima generazione**, anche se nel frattempo si cambia un file.
+
+## Accesso e segreti
+
+- Accesso protetto da password: variabile d'ambiente **`APP_PASSWORD`**. Login su `/login`, cookie di sessione
+  firmato HMAC (`lib/auth.ts`), controllo in `proxy.ts` su tutte le pagine e API tranne il login.
+  Cambiare la password invalida le sessioni.
+- **`OPENAI_API_KEY`** resta **solo lato server** (mai esposta al browser).
+
+## Deploy e verifiche
+
+- **Vercel, piano Hobby** per ora. Variabili d'ambiente impostate per Production e Preview.
+- `main` va in produzione; ogni push su altro branch crea un deploy di anteprima.
+- Si lavora su un branch e si apre una pull request verso `main`; il merge lo fa l'utente.
+- **L'utente non esegue nulla in locale.** Claude, prima di ogni push, esegue typecheck, build e test
+  dell'interfaccia con Playwright contro un **server OpenAI simulato** (`OPENAI_BASE_URL` verso un mock locale).
+  Le **chiamate reali a OpenAI si verificano sui deploy di anteprima** Vercel.
+
+## Interfaccia
+
+Stile definito a partire dalle immagini di riferimento fornite dall'utente (una per 1 immagine, una per 3 immagini).
+Le modifiche future devono restare coerenti con quanto segue.
+
+### Struttura della pagina (dall'alto)
+
+1. **Intestazione**: logo a gomitolo (`app/components/Logo.tsx`) + titolo "YarnColor Studio" in serif +
+   sottotitolo; a destra il pulsante "Esci" con icona (su schermi piccoli solo icona).
+2. **Due card affiancate** (una sotto l'altra sotto i 1080 px): "1 Immagine master" e "2 Immagine destinazione",
+   con badge numerato. Dentro: a sinistra l'anteprima grande in un riquadro tratteggiato; a destra il pulsante
+   "Scegli file / o trascina un'immagine qui", nome e peso del file, per il master le "Dimensioni master" e un
+   riquadro evidenziato (colore accento tenue) "L'immagine generata avrà dimensioni W × H"
+   o il messaggio d'errore. Si può trascinare un file sulla card o cliccare l'anteprima.
+3. **Card "Prompt" + "Impostazioni"** affiancati (prompt ~1,6/2,6 della larghezza, separatore verticale):
+   - Prompt: icona matita, nota "Le modifiche valgono solo per questa sessione…", textarea monospace,
+     sotto "Prompt di default / modificato · N caratteri", pulsante "Ripristina" nell'intestazione.
+   - Impostazioni: icona ingranaggio; select "Modello" con icona scintille; "Numero di immagini" come due pulsanti
+     radio affiancati ("1 immagine" / "3 immagini", quello attivo con bordo e sfondo accento tenue);
+     pulsante grande arrotondato "Genera immagine" / "Genera 3 immagini" (icona scintille + freccia);
+     sotto, cosa manca o il peso degli input.
+4. **Card "Risultato"**:
+   - Vuota: messaggio "i risultati compariranno qui".
+   - **1 immagine**: anteprima grande a sinistra con lente in alto a destra; a destra pannello
+     "Dettagli immagine" (Dimensioni, Dimensione file, Modello, Generata il) e pulsante "Scarica immagine";
+     nell'intestazione pillola verde "Generata in N secondi".
+   - **3 immagini**: tre riquadri affiancati "Immagine 1/2/3" con lente, immagine, "Generata in N s" e
+     pulsante "Scarica"; nell'intestazione pillola "N di 3 pronte".
+   - In attesa: rotellina e secondi trascorsi. In errore: riquadro rosso tenue con messaggio e "Riprova".
+   - La lente apre lo **zoom a schermo intero** (`Lightbox.tsx`) con "Scarica"; si chiude con Esc o clic fuori.
+
+### Colori (token in `app/globals.css`)
+
+Palette calda, neutra con accento marrone-cuoio:
+- Sfondo pagina `#f7f3ee` con leggere sfumature radiali; card bianche `#ffffff`, superfici secondarie `#faf7f3`.
+- Testo `#2b211b`, testo secondario `#7b6f66`, bordi `#ebe3d9` / `#ddd2c5`.
+- Accento `#8a4a2b` (hover `#743c22`), accento tenue `#fbece1` / `#f6dfcf`, verde stato `#2f9e5b`,
+  errore `#b42318` su `#fdecea`.
+- Tema scuro automatico (`prefers-color-scheme: dark`) con gli stessi token ridefiniti.
+- Usare sempre i token CSS (`var(--accent)` ecc.), mai colori sparsi nei componenti.
+
+### Tipografia
+
+- Titoli del marchio (logo, login): **Fraunces** (serif), via `next/font/google`.
+- Testo e interfaccia: **Inter**; titoli delle card in grassetto ~1,1 rem; testi secondari in grigio caldo.
+- Prompt in font monospace.
+
+### Componenti e forme
+
+- Card con angoli arrotondati (18 px), bordo sottile e ombra morbida; elementi interni con raggio 12 px.
+- Icone **lucide-react** (stile lineare); icone di sezione in cerchi color accento tenue; step numerati in
+  cerchi pieni color accento.
+- Pulsanti: primario pieno accento; secondario con bordo; "tenue" (sfondo accento chiaro) per
+  "Scarica immagine"; pulsante "Genera" a pillola.
+- Componenti: `app/Generator.tsx` (stato e logica), `app/components/UploadCard.tsx`,
+  `app/components/ResultsSection.tsx`, `app/components/Lightbox.tsx`, `app/components/Logo.tsx`.
+- Pagina di login nello stesso stile (logo, titolo serif, card centrata).
+
+### Smartphone
+
+Verificato a 320 px (iPhone SE), 412 px (Pixel 7) e 768 px (iPad Mini):
+- tutto in una colonna, nessuno scorrimento orizzontale (griglie con `minmax(0, 1fr)`);
+- campi di testo e select a **16 px** su touch/schermi stretti, per evitare lo zoom automatico di iOS;
+- pulsanti con area di tocco ≥ 36 px; testi brevi dei pulsanti senza a capo;
+- sotto i 600 px il sottotitolo dell'intestazione è nascosto e "Esci" mostra solo l'icona;
+- sotto i 400 px margini e padding ridotti.
+Le regole responsive stanno **in fondo** a `globals.css`, così sovrascrivono quelle base.
+
+## Struttura del codice
+
+| Percorso | Contenuto |
+|---|---|
+| `config/app.config.ts` | Modelli, `outputLongSide`, limiti di size, qualità, formato, compressione, limiti upload |
+| `config/default-prompt.txt` | Prompt di default (non modificare senza richiesta) |
+| `lib/openai-edit.ts` | Chiamata a `images.edit` e traduzione degli errori |
+| `lib/output-size.ts` | Lettura dimensioni master e calcolo della size di output |
+| `lib/upload.ts` | Validazione input, formattazione pesi |
+| `lib/auth.ts`, `proxy.ts`, `app/login`, `app/api/login`, `app/api/logout` | Accesso con password |
+| `app/api/generate/route.ts` | Generazione di una immagine |
+| `app/page.tsx`, `app/Generator.tsx`, `app/components/*` | Interfaccia |
