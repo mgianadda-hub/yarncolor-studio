@@ -32,10 +32,14 @@ Limiti dei modelli: lati multipli di 16, rapporto massimo 3:1, massimo 3840×216
 - Ogni push su un branch crea un deploy di anteprima; il branch `main` va in produzione.
 - Piano Hobby: le route di generazione hanno `maxDuration = 300` secondi.
 
-## Smoke test (temporaneo)
+## Funzionamento
 
-`/smoke-test` esegue una chiamata reale per ciascun modello e mostra tempi, size e peso dei risultati.
-Va rimosso (`app/smoke-test`, `app/api/smoke-test`) dopo la verifica sul deploy di anteprima.
+1. Carica l'immagine master e l'immagine destinazione (JPG, PNG o WebP, massimo 4 MB in totale).
+   L'app mostra la dimensione con cui verrà generata l'immagine.
+2. Il prompt di default è precompilato e modificabile; le modifiche valgono solo per la generazione in corso.
+3. Scegli il modello (default `gpt-image-2`) e 1 o 3 immagini: ogni immagine è una chiamata separata
+   che parte sempre da master e destinazione.
+4. Ogni risultato si scarica come `<nome master>_1.jpg`, `_2.jpg`, `_3.jpg`.
 
 ## Sviluppo
 
