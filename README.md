@@ -25,6 +25,13 @@ Variabili d'ambiente (vedi `.env.example`), da impostare su Vercel per **Product
 La `size` è proporzionale al master: lato lungo 1504 px, lato corto arrotondato al multiplo di 16 più vicino.
 Limiti dei modelli: lati multipli di 16, rapporto massimo 3:1, massimo 3840×2160.
 
+## Deploy su Vercel
+
+- Framework Preset: **Next.js** (comandi di build predefiniti).
+- Variabili `OPENAI_API_KEY` e `APP_PASSWORD` per Production e Preview.
+- Ogni push su un branch crea un deploy di anteprima; il branch `main` va in produzione.
+- Piano Hobby: le route di generazione hanno `maxDuration = 300` secondi.
+
 ## Smoke test (temporaneo)
 
 `/smoke-test` esegue una chiamata reale per ciascun modello e mostra tempi, size e peso dei risultati.
