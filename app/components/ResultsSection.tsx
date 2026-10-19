@@ -9,6 +9,7 @@ import {
   File as FileIcon,
   Images,
   LoaderCircle,
+  Palette,
   RefreshCw,
   Scan,
   ZoomIn,
@@ -16,8 +17,9 @@ import {
 import { formatMB } from "@/lib/upload";
 import Lightbox from "./Lightbox";
 
+/** `hex` è presente solo nella modalità "Da codice colore". */
 export type Result =
-  | { status: "pending"; startedAt: number; model: string; size?: string }
+  | { status: "pending"; startedAt: number; model: string; size?: string; hex?: string }
   | {
       status: "ok";
       url: string;
@@ -25,9 +27,10 @@ export type Result =
       bytes: number;
       size: string;
       model: string;
+      hex?: string;
       finishedAt: number;
     }
-  | { status: "error"; error: string; model: string };
+  | { status: "error"; error: string; model: string; hex?: string };
 
 type Props = {
   results: Result[];
@@ -78,7 +81,8 @@ export default function ResultsSection({ results, canRetry, fileName, onRetry }:
         </div>
         {single && results[0].status === "ok" && (
           <span className="status-pill">
-            <span className="dot" /> Generata in {results[0].seconds} secondi
+            <span className="dot" /> Generata in {results[0].seconds}{" "}
+            {results[0].seconds === 1 ? "secondo" : "secondi"}
           </span>
         )}
         {!single && results.length > 0 && (
@@ -261,6 +265,17 @@ function SingleResult({
             </dt>
             <dd>{result.model}</dd>
           </div>
+          {result.hex && (
+            <div>
+              <dt>
+                <Palette size={16} aria-hidden="true" /> Colore
+              </dt>
+              <dd className="color-dd">
+                <span className="swatch-dot" style={{ background: result.hex }} aria-hidden="true" />
+                {result.hex}
+              </dd>
+            </div>
+          )}
           <div>
             <dt>
               <Clock size={16} aria-hidden="true" /> Generata il

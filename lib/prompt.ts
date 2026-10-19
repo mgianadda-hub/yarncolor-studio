@@ -2,7 +2,16 @@ import "server-only";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-/** Legge il prompt di default da config/default-prompt.txt, così com'è. */
+function readConfigFile(name: string): Promise<string> {
+  return readFile(path.join(process.cwd(), "config", name), "utf8");
+}
+
+/** Prompt di default della modalità "Da campione" (config/default-prompt.txt), così com'è. */
 export function readDefaultPrompt(): Promise<string> {
-  return readFile(path.join(process.cwd(), "config", "default-prompt.txt"), "utf8");
+  return readConfigFile("default-prompt.txt");
+}
+
+/** Prompt di default della modalità "Da codice colore" (config/hex-prompt.txt), così com'è. */
+export function readHexPrompt(): Promise<string> {
+  return readConfigFile("hex-prompt.txt");
 }

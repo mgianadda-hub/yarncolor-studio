@@ -1,12 +1,12 @@
 import { LogOut } from "lucide-react";
-import { readDefaultPrompt } from "@/lib/prompt";
+import { readDefaultPrompt, readHexPrompt } from "@/lib/prompt";
 import Logo from "./components/Logo";
 import Generator from "./Generator";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const defaultPrompt = await readDefaultPrompt();
+  const [samplePrompt, hexPrompt] = await Promise.all([readDefaultPrompt(), readHexPrompt()]);
   return (
     <main className="page">
       <header className="app-header">
@@ -14,7 +14,7 @@ export default async function HomePage() {
           <Logo />
           <div>
             <h1>YarnColor Studio</h1>
-            <p>Applica al gomitolo del master il colore del filato dell&apos;immagine destinazione.</p>
+            <p>Ricolora il gomitolo del master partendo da un campione di filato o da un codice colore.</p>
           </div>
         </div>
         <form action="/api/logout" method="post">
@@ -24,7 +24,7 @@ export default async function HomePage() {
           </button>
         </form>
       </header>
-      <Generator defaultPrompt={defaultPrompt} />
+      <Generator defaultPrompts={{ sample: samplePrompt, hex: hexPrompt }} />
     </main>
   );
 }

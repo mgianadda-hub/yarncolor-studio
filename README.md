@@ -11,7 +11,8 @@ Le decisioni di progetto (parametri API, modelli, interfaccia, deploy) sono racc
 
 | File | Contenuto |
 |---|---|
-| `config/default-prompt.txt` | Prompt di default, caricato nel campo di testo dell'app |
+| `config/default-prompt.txt` | Prompt di default della modalità "Da campione" |
+| `config/hex-prompt.txt` | Prompt di default della modalità "Da codice colore" (con `{TARGET_HEX}`) |
 | `config/app.config.ts` | Modelli selezionabili, lato lungo dell'output (`outputLongSide`, 1504), qualità, formato JPEG e compressione, limiti di upload |
 
 Variabili d'ambiente (vedi `.env.example`), da impostare su Vercel per **Production** e **Preview**:
@@ -36,13 +37,16 @@ Limiti dei modelli: lati multipli di 16, rapporto massimo 3:1, massimo 3840×216
 
 ## Funzionamento
 
-1. Carica l'immagine master e l'immagine destinazione (JPG, PNG o WebP, massimo 4 MB in totale).
-   L'app mostra la dimensione con cui verrà generata l'immagine.
-2. Il prompt di default è precompilato e modificabile; le modifiche valgono solo per la generazione in corso.
-3. Scegli il modello (default `gpt-image-2.5-sunburst`) e 1 o 3 immagini: ogni immagine è una chiamata separata
-   che parte sempre da master e destinazione.
-4. Ogni risultato si scarica come `<nome master>-<nome destinazione>.jpg`; con 3 immagini si aggiunge
-   `-1`, `-2`, `-3` (es. `gomitolo_mohair-rosso-2.jpg`).
+Due modalità, selezionabili in alto:
+
+- **Da campione**: master + immagine destinazione (dettaglio del filato). File: `<master>-<destinazione>.jpg`
+  (con 3 immagini `-1`, `-2`, `-3`).
+- **Da codice colore**: master + codice esadecimale (obbligatorio) e nome colore facoltativo, usato solo per il
+  nome del file. Nel prompt `{TARGET_HEX}` viene sostituito lato server. File: `<master>_<nome colore o HEX>.jpg`
+  (con 3 immagini `_1`, `_2`, `_3`).
+
+Prompt di default modificabili solo per la generazione in corso, modello (default `gpt-image-2.5-sunburst`),
+1 o 3 immagini (una chiamata per immagine, in parallelo). Dettagli completi in [`CLAUDE.md`](CLAUDE.md).
 
 ## Sviluppo
 

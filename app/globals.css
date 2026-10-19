@@ -994,7 +994,229 @@ textarea {
   color: var(--error);
 }
 
+/* ---------- Modalità di ricolorazione ---------- */
+
+.mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+@media (min-width: 720px) {
+  .mode-switch {
+    width: fit-content;
+    grid-template-columns: repeat(2, minmax(240px, auto));
+  }
+}
+
+.mode-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.mode-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mode-option:hover {
+  background: var(--surface-2);
+}
+
+.mode-option:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.mode-option.is-active {
+  background: var(--accent-soft);
+}
+
+.mode-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.mode-option.is-active .mode-icon {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.mode-text {
+  display: grid;
+  min-width: 0;
+}
+
+.mode-text strong {
+  font-size: 0.98rem;
+}
+
+.mode-text span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+/* ---------- Colore di destinazione ---------- */
+
+.color-preview {
+  cursor: default;
+  position: relative;
+  border-style: dashed;
+}
+
+.color-preview.has-color {
+  border-style: solid;
+  border-color: var(--border-strong);
+}
+
+.color-chip {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.92);
+  color: #2b211b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.hex-row {
+  display: flex;
+  gap: 10px;
+}
+
+.hex-row .input {
+  flex: 1;
+  min-width: 0;
+  text-transform: uppercase;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.input.is-invalid {
+  border-color: var(--error);
+}
+
+.input.is-invalid:focus {
+  box-shadow: 0 0 0 3px var(--error-soft);
+}
+
+.picker {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background:
+    conic-gradient(from 0deg, #e74c3c, #f1c40f, #2ecc71, #3498db, #9b59b6, #e74c3c);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.picker:hover {
+  border-color: var(--accent);
+}
+
+.picker.is-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.picker input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.picker-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.15);
+}
+
+.required {
+  color: var(--error);
+}
+
+.optional {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.prompt-warning {
+  margin-top: 10px;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.color-dd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.swatch-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.15);
+}
+
 /* ---------- Schermi piccoli e touch (in fondo: sovrascrivono le regole base) ---------- */
+
+@media (max-width: 520px) {
+  .mode-option {
+    padding: 8px 10px;
+    gap: 10px;
+  }
+
+  .mode-text span {
+    display: none;
+  }
+
+  .mode-icon {
+    width: 32px;
+    height: 32px;
+  }
+}
 
 @media (max-width: 400px) {
   .page {

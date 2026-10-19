@@ -1,9 +1,13 @@
 # YarnColor Studio — decisioni di progetto
 
-App Next.js (App Router, TypeScript) pubblicata su Vercel. Applica alla foto di un gomitolo
-(**immagine master**) il colore del filato di un'altra immagine (**immagine destinazione**, un dettaglio
-del filato) tramite l'endpoint di image edit di OpenAI. L'app **non elabora le immagini**: le inoltra così
-come sono e mostra il risultato.
+App Next.js (App Router, TypeScript) pubblicata su Vercel. Ricolora la foto di un gomitolo
+(**immagine master**) tramite l'endpoint di image edit di OpenAI, in due **modalità** alternative:
+
+- **"Da campione"** (`mode: "sample"`, default): il colore viene dal filato di un'altra immagine
+  (**immagine destinazione**, un dettaglio del filato).
+- **"Da codice colore"** (`mode: "hex"`): il colore è un **codice esadecimale**; si invia solo il master.
+
+L'app **non elabora le immagini**: le inoltra così come sono e mostra il risultato.
 
 > **Tieni aggiornato questo file.** Ogni volta che con l'utente si prende una nuova decisione
 > (parametri, comportamento, interfaccia, deploy), aggiorna la sezione relativa nello stesso commit della modifica.
@@ -12,14 +16,19 @@ come sono e mostra il risultato.
 ## Parametri API
 
 - Endpoint: `POST /v1/images/edits` tramite l'SDK ufficiale `openai` (`client.images.edit`), in `lib/openai-edit.ts`.
-- `image`: sempre **[master, destinazione]**, in quest'ordine.
+- `image`:
+  - "Da campione": sempre **[master, destinazione]**, in quest'ordine;
+  - "Da codice colore": **solo [master]** (il server ignora un'eventuale destinazione).
 - `quality: "high"`.
 - Output: `output_format: "jpeg"`, `output_compression: 80`.
 - `input_fidelity`: **non va passato** (per gpt-image-2 la documentazione dice di ometterlo).
 - `n: 1`: **una immagine per chiamata**. Scegliendo 3 immagini il browser fa **3 chiamate in parallelo**
-  a `/api/generate`, tutte partendo da master e destinazione.
+  a `/api/generate`, tutte partendo dal master (e dalla destinazione, in modalità "Da campione").
 - La route `/api/generate` restituisce il JPEG in binario (`image/jpeg`, header `X-Output-Size`),
   `maxDuration = 300` (limite del piano Hobby). Il client OpenAI non fa retry automatici (`maxRetries: 0`).
+- Modelli, qualità, formato e dimensione proporzionale sono **gli stessi nelle due modalità**.
+- La route riceve il campo `mode` (`sample` | `hex`); in modalità `hex` anche `hex`. Il **nome colore non
+  viene mai inviato** né al server né all'API.
 - I valori stanno in `config/app.config.ts` (`quality`, `outputFormat`, `outputCompression`).
 
 ## Modelli
@@ -46,22 +55,41 @@ come sono e mostra il risultato.
 
 ## Prompt
 
-- Il default è in **`config/default-prompt.txt`**: **non va modificato senza richiesta esplicita dell'utente**.
-- Nell'interfaccia è caricato in un campo di testo modificabile; le modifiche valgono **solo per la generazione
-  in corso** (non vengono salvate). Il pulsante **"Ripristina"** compare quando il prompt è stato modificato.
-- Limite OpenAI: 32.000 caratteri (controllato dalla route).
+- Un prompt di default per modalità, **da non modificare senza richiesta esplicita dell'utente**:
+  - "Da campione": **`config/default-prompt.txt`**;
+  - "Da codice colore": **`config/hex-prompt.txt`** (caricato dall'utente).
+- Nell'interfaccia il prompt della modalità attiva è in un campo di testo modificabile; le modifiche valgono
+  **solo per la generazione in corso** (non vengono salvate) e ogni modalità conserva le sue.
+  Il pulsante **"Ripristina"** compare quando il prompt è stato modificato.
+- "Da codice colore": al momento dell'invio, **lato server**, ogni occorrenza di **`{TARGET_HEX}`** viene sostituita
+  con l'esadecimale normalizzato (`lib/hex.ts`). Se il prompt non contiene `{TARGET_HEX}` l'app mostra un
+  **avviso** e non invia (il pulsante Genera è disattivato; la route rifiuta comunque la richiesta).
+  Nella textarea il segnaposto resta visibile, non sostituito.
+- Limite OpenAI: 32.000 caratteri (controllato dalla route dopo la sostituzione).
 
 ## Input
 
-- Formati: JPG, PNG, WebP. Peso massimo complessivo dei due file: **4 MB** (Vercel accetta richieste fino a ~4,5 MB).
+- Formati: JPG, PNG, WebP. Peso massimo complessivo dei file inviati: **4 MB** (Vercel accetta richieste fino a ~4,5 MB).
 - Gli input vanno direttamente alla route come multipart; nessun Vercel Blob.
+- "Da codice colore":
+  - **Codice esadecimale obbligatorio**: accetta 6 cifre con o senza `#` (spazi ai lati ignorati), normalizzato in
+    **maiuscolo con `#`** (es. `1a2b3c` → `#1A2B3C`). Formati a 3 o 8 cifre non sono accettati.
+    Validato nel browser e di nuovo nel server (`normalizeHex` in `lib/hex.ts`).
+  - Color picker e anteprima del colore sincronizzati con il campo di testo.
+  - **"Nome colore" facoltativo**: serve **solo** per il nome del file; non va mai nel prompt né all'API.
 
 ## File scaricati
 
-- Nome: **`<nome master>-<nome destinazione>.jpg`** (senza estensioni originali),
-  es. `gomitolo_mohair-rosso.jpg`.
-- Con 3 immagini si aggiunge **`-1`, `-2`, `-3`**: `gomitolo_mohair-rosso-1.jpg`, ecc.
-- Nomi e "Riprova" usano gli input dell'**ultima generazione**, anche se nel frattempo si cambia un file.
+Logica in `lib/filenames.ts`. I nomi originali sono usati senza estensione.
+
+- **"Da campione"**: **`<nome master>-<nome destinazione>.jpg`**, es. `gomitolo_mohair-rosso.jpg`.
+  Con 3 immagini si aggiunge **`-1`, `-2`, `-3`**: `gomitolo_mohair-rosso-1.jpg`, ecc.
+- **"Da codice colore"**: **`<nome master>_<nome colore>.jpg`**, oppure **`<nome master>_<esadecimale senza #>.jpg`**
+  se il nome colore è vuoto. Con 3 immagini si aggiunge **`_1`, `_2`, `_3`**.
+  Es. `gomitolo-blu_navy_1.jpg`, `gomitolo-blu_1A2B3C.jpg`.
+  Nel nome colore spazi e caratteri speciali diventano trattini e gli accenti vengono tolti
+  (`"Blu notte è"` → `Blu-notte-e`); le maiuscole restano come digitate.
+- Nomi e "Riprova" usano gli input dell'**ultima generazione**, anche se nel frattempo si cambia un file o il colore.
 
 ## Accesso e segreti
 
@@ -88,22 +116,33 @@ Le modifiche future devono restare coerenti con quanto segue.
 
 1. **Intestazione**: logo a gomitolo (`app/components/Logo.tsx`) + titolo "YarnColor Studio" in serif +
    sottotitolo; a destra il pulsante "Esci" con icona (su schermi piccoli solo icona).
-2. **Due card affiancate** (una sotto l'altra sotto i 1080 px): "1 Immagine master" e "2 Immagine destinazione",
-   con badge numerato. Dentro: a sinistra l'anteprima grande in un riquadro tratteggiato; a destra il pulsante
+2. **Selettore di modalità** (`ModeSwitch.tsx`): due opzioni affiancate "Da campione" (Master + foto del filato)
+   e "Da codice colore" (Master + codice esadecimale), con icona in cerchio; quella attiva ha sfondo accento tenue
+   e icona piena. Sotto i 520 px resta solo l'etichetta. Disattivato durante la generazione.
+3. **Due card affiancate** (una sotto l'altra sotto i 1080 px): "1 Immagine master" e, a seconda della modalità,
+   "2 Immagine destinazione" oppure "2 Colore di destinazione", con badge numerato. Dentro: a sinistra l'anteprima grande in un riquadro tratteggiato; a destra il pulsante
    "Scegli file / o trascina un'immagine qui", nome e peso del file, per il master le "Dimensioni master" e un
    riquadro evidenziato (colore accento tenue) "L'immagine generata avrà dimensioni W × H"
    o il messaggio d'errore. Si può trascinare un file sulla card o cliccare l'anteprima.
-3. **Card "Prompt" + "Impostazioni"** affiancati (prompt ~1,6/2,6 della larghezza, separatore verticale):
+   - "Colore di destinazione" (`ColorCard.tsx`): a sinistra un riquadro grande riempito con il colore e una
+     pillola con l'esadecimale (tratteggiato con "Nessun colore" se vuoto); a destra il campo "Codice esadecimale *"
+     in monospace con accanto il pulsante color picker (bordo arcobaleno con pallino del colore), messaggio di
+     validazione, poi "Nome colore (facoltativo)" con la nota "Serve solo per il nome del file…" e l'anteprima del
+     nome file.
+4. **Card "Prompt" + "Impostazioni"** affiancati (prompt ~1,6/2,6 della larghezza, separatore verticale):
    - Prompt: icona matita, nota "Le modifiche valgono solo per questa sessione…", textarea monospace,
-     sotto "Prompt di default / modificato · N caratteri", pulsante "Ripristina" nell'intestazione.
+     sotto "Prompt di default / modificato (modalità) · N caratteri" e, in "Da codice colore",
+     "`{TARGET_HEX}` sarà sostituito con #…"; pulsante "Ripristina" nell'intestazione. Se manca `{TARGET_HEX}`,
+     riquadro di avviso rosso tenue sotto la textarea.
    - Impostazioni: icona ingranaggio; select "Modello" con icona scintille; "Numero di immagini" come due pulsanti
      radio affiancati ("1 immagine" / "3 immagini", quello attivo con bordo e sfondo accento tenue);
      pulsante grande arrotondato "Genera immagine" / "Genera 3 immagini" (icona scintille + freccia);
      sotto, cosa manca o il peso degli input.
-4. **Card "Risultato"**:
+5. **Card "Risultato"**:
    - Vuota: messaggio "i risultati compariranno qui".
    - **1 immagine**: anteprima grande a sinistra con lente in alto a destra; a destra pannello
-     "Dettagli immagine" (Dimensioni, Dimensione file, Modello, Generata il) e pulsante "Scarica immagine";
+     "Dettagli immagine" (Dimensioni, Dimensione file, Modello, Colore con pallino solo in "Da codice colore",
+     Generata il) e pulsante "Scarica immagine";
      nell'intestazione pillola verde "Generata in N secondi".
    - **3 immagini**: tre riquadri affiancati "Immagine 1/2/3" con lente, immagine, "Generata in N s" e
      pulsante "Scarica"; nell'intestazione pillola "N di 3 pronte".
@@ -133,8 +172,9 @@ Palette calda, neutra con accento marrone-cuoio:
   cerchi pieni color accento.
 - Pulsanti: primario pieno accento; secondario con bordo; "tenue" (sfondo accento chiaro) per
   "Scarica immagine"; pulsante "Genera" a pillola.
-- Componenti: `app/Generator.tsx` (stato e logica), `app/components/UploadCard.tsx`,
-  `app/components/ResultsSection.tsx`, `app/components/Lightbox.tsx`, `app/components/Logo.tsx`.
+- Componenti: `app/Generator.tsx` (stato e logica), `app/components/ModeSwitch.tsx`,
+  `app/components/UploadCard.tsx`, `app/components/ColorCard.tsx`, `app/components/ResultsSection.tsx`,
+  `app/components/Lightbox.tsx`, `app/components/Logo.tsx`.
 - Pagina di login nello stesso stile (logo, titolo serif, card centrata).
 
 ### Smartphone
@@ -152,10 +192,14 @@ Le regole responsive stanno **in fondo** a `globals.css`, così sovrascrivono qu
 | Percorso | Contenuto |
 |---|---|
 | `config/app.config.ts` | Modelli, `outputLongSide`, limiti di size, qualità, formato, compressione, limiti upload |
-| `config/default-prompt.txt` | Prompt di default (non modificare senza richiesta) |
+| `config/default-prompt.txt` | Prompt di default "Da campione" (non modificare senza richiesta) |
+| `config/hex-prompt.txt` | Prompt di default "Da codice colore" con `{TARGET_HEX}` (non modificare senza richiesta) |
+| `lib/hex.ts` | Validazione/normalizzazione dell'esadecimale e sostituzione di `{TARGET_HEX}` |
+| `lib/filenames.ts` | Nomi dei file scaricati per le due modalità |
 | `lib/openai-edit.ts` | Chiamata a `images.edit` e traduzione degli errori |
 | `lib/output-size.ts` | Lettura dimensioni master e calcolo della size di output |
 | `lib/upload.ts` | Validazione input, formattazione pesi |
 | `lib/auth.ts`, `proxy.ts`, `app/login`, `app/api/login`, `app/api/logout` | Accesso con password |
-| `app/api/generate/route.ts` | Generazione di una immagine |
+| `lib/prompt.ts` | Lettura dei due prompt di default |
+| `app/api/generate/route.ts` | Generazione di una immagine (entrambe le modalità) |
 | `app/page.tsx`, `app/Generator.tsx`, `app/components/*` | Interfaccia |

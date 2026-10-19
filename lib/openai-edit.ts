@@ -12,20 +12,27 @@ function getClient(): OpenAI {
 
 export type EditInput = {
   master: File;
-  destination: File;
+  /** Assente nella modalità "Da codice colore": si invia solo il master. */
+  destination?: File;
   prompt: string;
   model: ModelId;
   size: string;
 };
 
-/** Chiama images/edits con [master, destinazione] e restituisce il JPEG generato. */
+/**
+ * Chiama images/edits con [master, destinazione] (o solo [master]) e restituisce il JPEG generato.
+ */
 export async function editImage(input: EditInput): Promise<Buffer> {
   const image = [
     await toFile(input.master, input.master.name || "master", { type: input.master.type }),
-    await toFile(input.destination, input.destination.name || "destinazione", {
-      type: input.destination.type,
-    }),
   ];
+  if (input.destination) {
+    image.push(
+      await toFile(input.destination, input.destination.name || "destinazione", {
+        type: input.destination.type,
+      }),
+    );
+  }
 
   const response = await getClient().images.edit({
     model: input.model,

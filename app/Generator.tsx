@@ -1,37 +1,49 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, LoaderCircle, Pencil, RotateCcw, Settings, Sparkles, ImageIcon } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  CircleAlert,
+  ImageIcon,
+  LoaderCircle,
+  Pencil,
+  RotateCcw,
+  Settings,
+  Sparkles,
+} from "lucide-react";
 import { appConfig } from "@/config/app.config";
+import { hexDownloadName, sampleDownloadName } from "@/lib/filenames";
+import { TARGET_HEX_PLACEHOLDER, normalizeHex } from "@/lib/hex";
 import { computeOutputSize, readImageDimensions } from "@/lib/output-size";
 import { formatMB, validateUploads } from "@/lib/upload";
+import ColorCard from "./components/ColorCard";
+import ModeSwitch, { type Mode } from "./components/ModeSwitch";
 import ResultsSection, { type Result } from "./components/ResultsSection";
 import UploadCard, { type SelectedImage } from "./components/UploadCard";
 
-function baseName(fileName: string): string {
-  return fileName.replace(/\.[^.]+$/, "");
-}
+/** Input dell'ultima generazione: usati da "Riprova" e per i nomi dei file scaricati. */
+type Job = {
+  mode: Mode;
+  master: File;
+  destination?: File;
+  /** Solo modalità "Da codice colore": esadecimale normalizzato e nome colore (quest'ultimo solo per il nome file). */
+  hex?: string;
+  colorName?: string;
+  prompt: string;
+  model: string;
+  size?: string;
+};
 
-/**
- * Nome del file scaricato: <master>-<destinazione>.jpg; con più immagini si aggiunge
- * -1, -2, -3 (es. gomitolo_mohair-rosso-2.jpg).
- */
-function downloadName(masterName: string, destinationName: string, index: number, total: number) {
-  const base = [baseName(masterName), baseName(destinationName)].filter(Boolean).join("-") || "immagine";
-  return total > 1 ? `${base}-${index + 1}.jpg` : `${base}.jpg`;
-}
-
-async function generateOne(
-  master: File,
-  destination: File,
-  prompt: string,
-  model: string,
-): Promise<{ blob: Blob; size: string }> {
+async function generateOne(job: Job): Promise<{ blob: Blob; size: string }> {
   const form = new FormData();
-  form.append("master", master);
-  form.append("destination", destination);
-  form.append("prompt", prompt);
-  form.append("model", model);
+  form.append("mode", job.mode);
+  form.append("master", job.master);
+  if (job.mode === "sample" && job.destination) form.append("destination", job.destination);
+  // Il nome colore non viene mai inviato: serve solo per il nome del file.
+  if (job.mode === "hex" && job.hex) form.append("hex", job.hex);
+  form.append("prompt", job.prompt);
+  form.append("model", job.model);
 
   const response = await fetch("/api/generate", { method: "POST", body: form });
   if (response.ok) {
@@ -52,27 +64,35 @@ async function generateOne(
   throw new Error(`Errore del server (HTTP ${response.status}).`);
 }
 
-type Job = {
-  master: File;
-  destination: File;
-  prompt: string;
-  model: string;
-  size?: string;
-};
+function fileNameFor(job: Job, index: number, total: number): string {
+  return job.mode === "hex"
+    ? hexDownloadName(job.master.name, job.hex ?? "", job.colorName ?? "", index, total)
+    : sampleDownloadName(job.master.name, job.destination?.name ?? "", index, total);
+}
 
-export default function Generator({ defaultPrompt }: { defaultPrompt: string }) {
+export default function Generator({
+  defaultPrompts,
+}: {
+  defaultPrompts: Record<Mode, string>;
+}) {
+  const [mode, setMode] = useState<Mode>("sample");
   const [master, setMaster] = useState<SelectedImage | null>(null);
   const [destination, setDestination] = useState<SelectedImage | null>(null);
-  const [prompt, setPrompt] = useState(defaultPrompt);
+  const [hexInput, setHexInput] = useState("");
+  const [colorName, setColorName] = useState("");
+  // Ogni modalità ha il suo prompt; le modifiche valgono solo per questa sessione.
+  const [prompts, setPrompts] = useState<Record<Mode, string>>(defaultPrompts);
   const [model, setModel] = useState<string>(appConfig.defaultModel);
   const [count, setCount] = useState<number>(appConfig.imageCountOptions[0]);
   const [results, setResults] = useState<Result[]>([]);
   const [, setTick] = useState(0);
   const resultUrls = useRef<string[]>([]);
-  // Input dell'ultima generazione: usati da "Riprova" e per i nomi dei file scaricati.
   const [job, setJob] = useState<Job | null>(null);
 
   const running = results.some((r) => r.status === "pending");
+  const prompt = prompts[mode];
+  const defaultPrompt = defaultPrompts[mode];
+  const setPrompt = (value: string) => setPrompts((prev) => ({ ...prev, [mode]: value }));
 
   // Aggiorna i contatori dei secondi mentre la generazione è in corso.
   useEffect(() => {
@@ -105,38 +125,44 @@ export default function Generator({ defaultPrompt }: { defaultPrompt: string }) 
     setter(selected);
   }
 
-  const uploadError = master && destination ? validateUploads(master.file, destination.file) : null;
-  const canGenerate =
-    !!master &&
-    !!destination &&
-    !uploadError &&
-    master.output?.ok === true &&
-    prompt.trim().length > 0 &&
-    !running;
+  const isHex = mode === "hex";
+  const hex = normalizeHex(hexInput);
+  const missingPlaceholder = isHex && !prompt.includes(TARGET_HEX_PLACEHOLDER);
+  const uploadError = master
+    ? isHex
+      ? validateUploads(master.file, null, false)
+      : destination
+        ? validateUploads(master.file, destination.file)
+        : null
+    : null;
 
   const missing = !master
     ? "Carica l'immagine master."
-    : !destination
+    : !isHex && !destination
       ? "Carica l'immagine destinazione."
-      : !prompt.trim()
-        ? "Il prompt è vuoto."
-        : null;
+      : isHex && !hex
+        ? hexInput.trim()
+          ? "Il codice colore non è valido."
+          : "Inserisci il codice esadecimale del colore."
+        : !prompt.trim()
+          ? "Il prompt è vuoto."
+          : missingPlaceholder
+            ? `Il prompt non contiene ${TARGET_HEX_PLACEHOLDER}.`
+            : null;
+
+  const canGenerate = !missing && !uploadError && master?.output?.ok === true && !running;
+  const inputBytes = (master?.file.size ?? 0) + (!isHex ? (destination?.file.size ?? 0) : 0);
 
   function setResult(index: number, result: Result) {
     setResults((prev) => prev.map((r, i) => (i === index ? result : r)));
   }
 
   async function runSlot(index: number, current: Job) {
-    const { model, size } = current;
+    const { model, size, hex } = current;
     const startedAt = Date.now();
-    setResult(index, { status: "pending", startedAt, model, size });
+    setResult(index, { status: "pending", startedAt, model, size, hex });
     try {
-      const { blob, size: outputSize } = await generateOne(
-        current.master,
-        current.destination,
-        current.prompt,
-        model,
-      );
+      const { blob, size: outputSize } = await generateOne(current);
       const url = URL.createObjectURL(blob);
       resultUrls.current.push(url);
       const finishedAt = Date.now();
@@ -147,6 +173,7 @@ export default function Generator({ defaultPrompt }: { defaultPrompt: string }) 
         bytes: blob.size,
         size: outputSize || size || "",
         model,
+        hex,
         finishedAt,
       });
     } catch (e) {
@@ -154,32 +181,50 @@ export default function Generator({ defaultPrompt }: { defaultPrompt: string }) 
         status: "error",
         error: e instanceof Error ? e.message : "Errore sconosciuto.",
         model,
+        hex,
       });
     }
   }
 
   function generate() {
-    if (!master || !destination) return;
+    if (!master || !canGenerate) return;
     resultUrls.current.forEach((url) => URL.revokeObjectURL(url));
     resultUrls.current = [];
     const current: Job = {
+      mode,
       master: master.file,
-      destination: destination.file,
+      destination: isHex ? undefined : destination?.file,
+      hex: isHex ? (hex ?? undefined) : undefined,
+      colorName: isHex ? colorName : undefined,
       prompt,
       model,
       size: master.output?.ok ? master.output.size : undefined,
     };
     setJob(current);
+    if (isHex && hex) setHexInput(hex);
     const startedAt = Date.now();
     setResults(
-      Array.from({ length: count }, () => ({ status: "pending", startedAt, model, size: current.size })),
+      Array.from({ length: count }, () => ({
+        status: "pending",
+        startedAt,
+        model,
+        size: current.size,
+        hex: current.hex,
+      })),
     );
-    // Una chiamata per immagine, in parallelo: ognuna parte da master e destinazione.
+    // Una chiamata per immagine, in parallelo: ognuna parte dal master.
     for (let i = 0; i < count; i++) void runSlot(i, current);
   }
 
+  const fileNameExample =
+    isHex && hex
+      ? hexDownloadName(master?.file.name || "master", hex, colorName, 0, count)
+      : null;
+
   return (
     <div className="stack-lg">
+      <ModeSwitch mode={mode} disabled={running} onChange={setMode} />
+
       <div className="inputs-grid">
         <UploadCard
           step={1}
@@ -190,14 +235,26 @@ export default function Generator({ defaultPrompt }: { defaultPrompt: string }) 
           showSizes
           onSelect={(f) => selectImage(f, "master")}
         />
-        <UploadCard
-          step={2}
-          title="Immagine destinazione"
-          hint="Il dettaglio del filato con il colore da applicare."
-          image={destination}
-          disabled={running}
-          onSelect={(f) => selectImage(f, "destination")}
-        />
+        {isHex ? (
+          <ColorCard
+            step={2}
+            hexInput={hexInput}
+            colorName={colorName}
+            disabled={running}
+            fileNameExample={fileNameExample}
+            onHexChange={setHexInput}
+            onColorNameChange={setColorName}
+          />
+        ) : (
+          <UploadCard
+            step={2}
+            title="Immagine destinazione"
+            hint="Il dettaglio del filato con il colore da applicare."
+            image={destination}
+            disabled={running}
+            onSelect={(f) => selectImage(f, "destination")}
+          />
+        )}
       </div>
 
       <section className="card workbench">
@@ -231,9 +288,25 @@ export default function Generator({ defaultPrompt }: { defaultPrompt: string }) 
             spellCheck={false}
             onChange={(e) => setPrompt(e.target.value)}
           />
+          {missingPlaceholder && (
+            <div className="callout callout-error prompt-warning" role="alert">
+              <CircleAlert size={20} aria-hidden="true" />
+              <div>
+                Il prompt non contiene <code>{TARGET_HEX_PLACEHOLDER}</code>: senza il segnaposto il colore
+                non arriverebbe al modello. Aggiungilo oppure premi «Ripristina».
+              </div>
+            </div>
+          )}
           <p className="hint-row">
-            {prompt === defaultPrompt ? "Prompt di default" : "Prompt modificato"} ·{" "}
-            {prompt.length.toLocaleString("it-IT")} caratteri
+            {prompt === defaultPrompt ? "Prompt di default" : "Prompt modificato"}
+            {isHex ? " (Da codice colore)" : " (Da campione)"} · {prompt.length.toLocaleString("it-IT")}{" "}
+            caratteri
+            {isHex && !missingPlaceholder && (
+              <>
+                {" "}
+                · <code>{TARGET_HEX_PLACEHOLDER}</code> sarà sostituito con {hex ?? "il codice colore"}
+              </>
+            )}
           </p>
         </div>
 
@@ -287,7 +360,12 @@ export default function Generator({ defaultPrompt }: { defaultPrompt: string }) 
           </fieldset>
 
           <div className="generate-area">
-            <button type="button" className="btn btn-primary btn-lg btn-block" onClick={generate} disabled={!canGenerate}>
+            <button
+              type="button"
+              className="btn btn-primary btn-lg btn-block"
+              onClick={generate}
+              disabled={!canGenerate}
+            >
               {running ? (
                 <>
                   <LoaderCircle size={20} className="spin" aria-hidden="true" /> Generazione in corso…
@@ -301,12 +379,13 @@ export default function Generator({ defaultPrompt }: { defaultPrompt: string }) 
               )}
             </button>
             {!running && (uploadError || missing) && (
-              <p className={`hint-row center${uploadError ? " error" : ""}`}>{uploadError ?? missing}</p>
+              <p className={`hint-row center${uploadError || missingPlaceholder ? " error" : ""}`}>
+                {uploadError ?? missing}
+              </p>
             )}
-            {!running && !uploadError && !missing && master && destination && (
+            {!running && !uploadError && !missing && (
               <p className="hint-row center">
-                Input: {formatMB(master.file.size + destination.file.size)} su{" "}
-                {formatMB(appConfig.maxUploadTotalBytes)}
+                Input: {formatMB(inputBytes)} su {formatMB(appConfig.maxUploadTotalBytes)}
               </p>
             )}
           </div>
@@ -316,9 +395,7 @@ export default function Generator({ defaultPrompt }: { defaultPrompt: string }) 
       <ResultsSection
         results={results}
         canRetry={!running && !!job}
-        fileName={(i) =>
-          downloadName(job?.master.name ?? "", job?.destination.name ?? "", i, results.length)
-        }
+        fileName={(i) => (job ? fileNameFor(job, i, results.length) : "immagine.jpg")}
         onRetry={(i) => job && void runSlot(i, job)}
       />
     </div>
