@@ -1,0 +1,385 @@
+# PRECISE YARN COLOR REPLACEMENT — E-COMMERCE PRODUCT PHOTO
+
+You are performing an extremely precise, photorealistic COLOR REPLACEMENT EDIT on an existing e-commerce product photograph of a yarn ball.
+
+**THIS IS A STRICTLY LOCALIZED IMAGE EDITING TASK, NOT A NEW IMAGE GENERATION OR PRODUCT RECONSTRUCTION TASK.**
+
+Your objective is to preserve the original product photograph exactly and change ONLY the color of the yarn fibers.
+
+Product fidelity, material accuracy, and preservation of the original photograph are more important than aesthetic enhancement.
+
+## 1. INPUT IMAGE AND TARGET COLOR
+
+**IMAGE 1 — MASTER PRODUCT IMAGE (THE ONLY INPUT IMAGE)**
+
+Image 1 is the original product photograph and the absolute reference for the final output.
+
+It defines everything about the final image EXCEPT the color of the yarn.
+
+It defines:
+- The exact yarn ball geometry, dimensions, shape, and proportions.
+- The exact structure and arrangement of every yarn strand.
+- The original fiber thickness, texture, softness, loft, fuzz, and halo.
+- The camera angle, composition, framing, and crop.
+- The product label, including every printed detail.
+- The background, surface, lighting, highlights, and shadows.
+- The natural texture, sheen, and translucency of the yarn.
+
+Treat Image 1 as an immutable master photograph.
+
+Everything in Image 1 must remain unchanged except the yarn color.
+
+**TARGET COLOR — HEXADECIMAL VALUE (NO SECOND IMAGE)**
+
+The desired yarn color is provided directly as a six-digit sRGB hexadecimal color code:
+
+**TARGET_HEX: {TARGET_HEX}**
+
+The value of TARGET_HEX (for example, #B7A49C) is the ONLY authority for the new yarn color.
+
+Interpret it as an sRGB color specified in the standard #RRGGBB format.
+
+Use it as the target reference for the yarn's representative, normally lit mid-tones—not as a flat, uniform replacement value for every fiber pixel.
+
+IMPORTANT:
+- There is NO secondary input image or photographic color reference.
+- Do not attempt to infer the target color from any other image, object, label, or background.
+- Do not preserve the yarn's original hue or saturation where they conflict with TARGET_HEX.
+- Do not invent extra hues, contrasting fibers, melange, tweed, heathering, or multicolor patterns that are not explicitly requested.
+- Generate lighter and darker appearances only as required by the master image's existing illumination, fiber translucency, shadows, and highlights.
+- Treat the HEX code as a color specification, not as an instruction to recolor the whole photograph.
+- Preserve the yarn material, strand texture, transparency, and specular behavior defined by Image 1.
+- The HEX code does not redefine the lighting, white balance, or exposure of the photograph.
+
+## 2. PRIMARY OBJECTIVE
+
+Produce a faithful, localized recoloring of Image 1.
+
+Replace the original yarn color with the target sRGB color specified by TARGET_HEX ({TARGET_HEX}).
+
+The result must look like the exact same physical yarn ball photographed with the exact same camera under the exact same lighting conditions, with only its color changed.
+
+The original fiber geometry must be treated as immutable.
+
+Do not create a visually similar replacement product.
+
+Do not reconstruct the yarn ball.
+
+Do not reinterpret its texture or material.
+
+Only transform the existing yarn color.
+
+## 3. STRICT COLOR ISOLATION — HIGHEST PRIORITY
+
+The color replacement must affect ONLY the yarn fibers in Image 1.
+
+**Every non-yarn element is a protected region and must remain completely untouched.**
+
+If an editing mask is provided, modify only the yarn fibers within the permitted region.
+
+Do not extend color changes beyond the intended editable area.
+
+### PRODUCT LABEL — ABSOLUTELY PROTECTED
+
+The paper label wrapped around the yarn is NOT part of the yarn.
+
+It is a separate printed object.
+
+Preserve exactly:
+- Original label shape and dimensions.
+- Original label position and orientation.
+- Original paper color and white areas.
+- All printed text.
+- Typography and font appearance.
+- Logos and brand identity.
+- Barcodes and QR codes.
+- Certification symbols.
+- Decorative lines and graphics.
+- Printed colors.
+- Paper texture.
+- Original folds, wrinkles, and curvature.
+- Label edges.
+- Existing highlights and shadows.
+
+Do not redraw, regenerate, reconstruct, enhance, or reinterpret the label.
+
+Do not introduce any target-color tint onto the label.
+
+Do not add colored reflections, color bleeding, colored glow, or ambient color contamination.
+
+**All white areas of the label must retain their exact original white or neutral appearance.**
+
+The label must remain visually identical to Image 1.
+
+### BACKGROUND AND SURFACE — ABSOLUTELY PROTECTED
+
+Preserve:
+- Original background color.
+- Original surface color.
+- Original lighting.
+- Original shadows.
+- Original white balance.
+- Original exposure.
+- Original contrast.
+- Original background texture.
+
+Do not:
+- Apply global color grading.
+- Introduce color casts.
+- Tint the background.
+- Change the overall white balance.
+- Add or remove shadows.
+- Add gradients or reflections.
+- Add artificial lighting.
+- Modify any area outside the yarn fibers.
+
+Every pixel outside the editable yarn region should retain its original appearance.
+
+## 4. PRESERVE THE ORIGINAL FIBER STRUCTURE — CRITICAL
+
+The yarn in Image 1 defines the actual physical characteristics of the product.
+
+These characteristics are immutable.
+
+Preserve exactly:
+- Individual strand thickness.
+- Individual strand diameter.
+- Strand scale and proportions.
+- Twist and ply structure.
+- Yarn wrapping directions.
+- Position and orientation of individual strands.
+- Fiber density.
+- Fiber distribution.
+- Original softness and loft.
+- Original volume.
+- Natural irregularities.
+- Fuzziness.
+- Fine flyaway fibers.
+- Loose hairs.
+- Mohair halo.
+- Delicate translucent fibers.
+- Natural variations in fiber density.
+- The distinction between dense areas and airy regions.
+- Silk sheen, when present.
+- Matte wool appearance, when present.
+- Depth and texture between individual strands.
+
+### SPECIAL REQUIREMENTS FOR SILK-MOHAIR AND BRUSHED YARNS
+
+For silk-mohair, mohair, brushed wool, and other fuzzy yarns, preserving the original fiber character is especially important.
+
+Maintain:
+- Extremely fine individual strands.
+- Lightweight and airy appearance.
+- Soft translucent mohair halo.
+- Delicate flyaway hairs surrounding the yarn ball.
+- Natural irregularity in the fiber distribution.
+- Original fiber transparency.
+- Original loft and softness.
+- Original relationship between the central yarn strand and surrounding fuzzy fibers.
+
+**Never make the yarn strands thicker, coarser, denser, smoother, or more compact than in Image 1.**
+
+Do not:
+- Increase strand thickness.
+- Change fiber diameter.
+- Add extra fibers.
+- Remove existing fibers.
+- Smooth the surface.
+- Sharpen or exaggerate texture.
+- Simplify the fiber structure.
+- Increase or decrease the apparent yarn volume.
+- Change the yarn material.
+- Transform mohair into wool or cotton.
+- Transform fine fibers into thick twisted strands.
+- Replace the original texture with newly generated or imagined fiber texture.
+
+The resulting yarn must remain physically indistinguishable from the yarn in Image 1.
+
+## 5. HEX-BASED COLOR REPLACEMENT METHOD
+
+Use **TARGET_HEX: {TARGET_HEX}** as the sole source of the target yarn color.
+
+Read the six-digit HEX value in the sRGB color space (#RRGGBB).
+
+### TARGET COLOR INTERPRETATION
+
+- The HEX value defines the target yarn's perceived base color, especially in representative, normally illuminated mid-tone fibers.
+- Recolor the existing fibers of Image 1 toward this specified hue and saturation while preserving their original spatial texture and light-and-shadow relationships.
+- Do not use the average color of the master image as the target color.
+- Do not sample or infer a target color from the paper label, background, or any other object.
+- Do not introduce an alternative target hue based on artistic judgment.
+- No secondary image, palette, gradient, or color swatch is supplied or required.
+- Do not apply a flat, opaque overlay or uniform fill; the resulting yarn must remain volumetric and photographic.
+- Do not apply a global photo filter or change the image's white balance.
+
+### PRESERVE ORIGINAL LIGHTING AND LUMINANCE
+
+Maintain the original light-and-shadow structure of Image 1.
+
+Specifically:
+- Original highlights remain highlights, rendered as naturally brighter appearances of the target color.
+- Original mid-tones retain their relative brightness and express the target HEX color most faithfully.
+- Original shadows remain shadows, rendered as naturally darker appearances of the target color.
+- Dark recesses between strands retain their depth.
+- Translucent fibers retain their natural transparency.
+- Fine hairs catching the light remain delicate and luminous.
+- Neighboring strands retain their subtle differences in brightness.
+- Existing three-dimensional depth must remain unchanged.
+- Retain natural neutral/specular highlights where physically appropriate for the original material.
+- Do not force every pixel to equal the exact HEX RGB triplet: that would destroy genuine photographic shading.
+
+### NATURAL TONAL VARIATIONS, NOT NEW COLOR PATTERNS
+
+A single HEX code specifies one base color; it does NOT specify a multicolor or variegated yarn.
+
+- Preserve the existing variations in illumination, fiber overlap, density, translucency, and shading from Image 1.
+- Derive lighter or darker versions of TARGET_HEX only where the original photo requires them.
+- Do not invent melange, heathered, tweed, variegated, streaked, or contrasting-color fibers.
+- If the master contains differing original fiber colors, replace their hue character with the same target base color while preserving physically plausible local brightness differences.
+- Preserve any natural material-specific optical response (e.g., silk sheen or mohair translucency) without importing a new texture.
+- Never let the recoloring contaminate the label, background, or cast shadow.
+
+## 6. ABSOLUTE COMPOSITION LOCK
+
+Use Image 1 as the immutable geometric reference.
+
+Preserve:
+- Exact image dimensions.
+- Exact aspect ratio.
+- Exact framing.
+- Exact crop.
+- Exact camera angle.
+- Exact yarn ball position.
+- Exact yarn ball outline.
+- Exact silhouette.
+- Exact product proportions.
+- Exact label position.
+- Exact background.
+- Exact lighting direction.
+- Exact original shadows.
+
+Do not:
+- Reframe.
+- Zoom.
+- Rotate.
+- Crop.
+- Extend the image.
+- Reposition the product.
+- Reshape the yarn ball.
+- Modify the overall composition.
+- Reconstruct or reposition the label.
+- Generate a different product photograph.
+
+The final image must retain the original square composition if Image 1 is square.
+
+## 7. PHOTOREALISM AND E-COMMERCE PRODUCT ACCURACY
+
+The final output must look like an authentic studio product photograph.
+
+It must accurately represent the original yarn product.
+
+The new yarn base color must closely match TARGET_HEX ({TARGET_HEX}) while preserving the material identity and geometry defined by Image 1.
+
+Avoid:
+- Artificial-looking saturation.
+- Flat color fills.
+- Painted or illustrated textures.
+- Oversharpened fibers.
+- Plastic-looking surfaces.
+- Unrealistic highlights.
+- Modified paper labels.
+- Global color contamination.
+- Artificial shadows.
+- Changes in product size or shape.
+- Any new objects or decorations.
+
+**Prioritize product fidelity over visual attractiveness.**
+
+## 8. EDITING MASK AND PROTECTED REGIONS
+
+If an editing mask accompanies Image 1, use it as guidance for the permitted editing region.
+
+The only intended modification is the yarn color.
+
+The product label and background must remain protected.
+
+Pay particular attention to the boundary between:
+- Yarn fibers and label edges.
+- Fine mohair hairs and white background.
+- Translucent fibers and surrounding empty space.
+
+Recolor fine flyaway fibers naturally without creating colored halos on the background.
+
+Avoid hard artificial edges around the yarn.
+
+Avoid color leakage into the label.
+
+Avoid replacing the natural mohair halo with an artificially generated outline.
+
+The requested transformation is strictly local.
+
+## 9. STRICT PRIORITY ORDER
+
+When requirements conflict, follow this priority order:
+
+1. Preserve the product label and every non-yarn region.
+2. Preserve original fiber thickness and geometry.
+3. Preserve original yarn texture, softness, fuzz, and mohair halo.
+4. Preserve original yarn ball shape and composition.
+5. Preserve original lighting, highlights, and shadows.
+6. Match TARGET_HEX ({TARGET_HEX}) as the representative yarn base color, with only photo-consistent light and shadow variations.
+7. Maintain photorealistic e-commerce quality.
+
+Never sacrifice physical product accuracy to produce a more attractive image.
+
+Never sacrifice label fidelity to obtain a stronger target color.
+
+Never modify fiber thickness or structure to improve perceived color matching.
+
+## 10. FINAL OUTPUT REQUIREMENTS
+
+Return ONE final photorealistic e-commerce product photograph using only Image 1 and TARGET_HEX ({TARGET_HEX}).
+
+The output must have:
+- The same dimensions as Image 1.
+- The same composition.
+- The same framing.
+- The same yarn ball geometry.
+- The same fiber thickness.
+- The same fiber texture.
+- The same mohair halo.
+- The same background.
+- The same lighting and shadows.
+- The same original printed label.
+
+**THE ONLY INTENDED VISUAL DIFFERENCE IS THE COLOR OF THE YARN FIBERS.**
+
+The final result must look like a real photograph of the original yarn ball manufactured in the base color specified by TARGET_HEX ({TARGET_HEX}).
+
+Do not add:
+- Text.
+- Watermarks.
+- Borders.
+- New labels.
+- Props.
+- Decorations.
+- Additional products.
+- Artificial visual effects.
+
+Do not retouch, enhance, clean up, or restyle any area unrelated to the color replacement.
+
+**FINAL VERIFICATION BEFORE OUTPUT**
+
+Check that:
+- The label remains neutral and unchanged.
+- The background has not acquired any color tint.
+- The fiber strands have not become thicker.
+- The fine mohair halo remains intact.
+- The original yarn geometry is preserved.
+- The yarn’s representative mid-tone color matches TARGET_HEX ({TARGET_HEX}) as closely as photorealistic lighting permits.
+- The original lighting and three-dimensional appearance are retained.
+
+If any conflict occurs, ALWAYS prioritize preserving Image 1 over recreating or enhancing the product.
+
+The intended result is a faithful recoloring of the original photograph, not a newly generated interpretation of it.
