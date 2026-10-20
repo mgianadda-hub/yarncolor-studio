@@ -42,8 +42,9 @@ Due modalità, selezionabili in alto:
 - **Da campione**: master + immagine destinazione (dettaglio del filato). File: `<master>-<destinazione>.jpg`
   (con 3 immagini `-1`, `-2`, `-3`).
 - **Da codice colore**: master + codice esadecimale (obbligatorio) e nome colore facoltativo, usato solo per il
-  nome del file. Nel prompt `{TARGET_HEX}` viene sostituito lato server. File: `<master>_<nome colore o HEX>.jpg`
-  (con 3 immagini `_1`, `_2`, `_3`).
+  nome del file. Nel prompt `{TARGET_HEX}` viene sostituito lato server. Con 3 immagini si può variare la
+  luminosità (OKLCH, default ±5%). File: `<master>_<HEX usato>[_<nome colore>].jpg` (con 3 immagini senza
+  variazione `_1`, `_2`, `_3`).
 
 Prompt di default modificabili solo per la generazione in corso, modello (default `gpt-image-2.5-sunburst`),
 1 o 3 immagini (una chiamata per immagine, in parallelo). Dettagli completi in [`CLAUDE.md`](CLAUDE.md).

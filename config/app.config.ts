@@ -43,6 +43,16 @@ export const appConfig = {
   /** Numero di immagini selezionabili; ogni immagine è una chiamata separata con n=1. */
   imageCountOptions: [1, 3],
 
+  /**
+   * Modalità "Da codice colore", 3 immagini: variazione di luminosità in OKLCH, in punti percentuali
+   * di L (5 = −0,05 / +0,05). Le immagini usano esadecimale −%, impostato, +%.
+   */
+  hexVariation: {
+    defaultPercent: 5,
+    minPercent: 0.5,
+    maxPercent: 50,
+  },
+
   /** Formati accettati per master e destinazione. */
   acceptedImageTypes: ["image/jpeg", "image/png", "image/webp"],
   /** Peso massimo complessivo dei due file: Vercel accetta richieste fino a ~4,5 MB. */

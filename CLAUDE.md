@@ -27,7 +27,8 @@ L'app **non elabora le immagini**: le inoltra così come sono e mostra il risult
 - La route `/api/generate` restituisce il JPEG in binario (`image/jpeg`, header `X-Output-Size`),
   `maxDuration = 300` (limite del piano Hobby). Il client OpenAI non fa retry automatici (`maxRetries: 0`).
 - Modelli, qualità, formato e dimensione proporzionale sono **gli stessi nelle due modalità**.
-- La route riceve il campo `mode` (`sample` | `hex`); in modalità `hex` anche `hex`. Il **nome colore non
+- La route riceve il campo `mode` (`sample` | `hex`); in modalità `hex` anche `hex`, cioè l'esadecimale
+  **di quella singola immagine** (con la variazione di luminosità ogni chiamata ha il suo). Il **nome colore non
   viene mai inviato** né al server né all'API.
 - I valori stanno in `config/app.config.ts` (`quality`, `outputFormat`, `outputCompression`).
 
@@ -78,17 +79,37 @@ L'app **non elabora le immagini**: le inoltra così come sono e mostra il risult
   - Color picker e anteprima del colore sincronizzati con il campo di testo.
   - **"Nome colore" facoltativo**: serve **solo** per il nome del file; non va mai nel prompt né all'API.
 
+### Variazione di luminosità ("Da codice colore", solo con 3 immagini)
+
+- Con 3 immagini compare la casella **"Varia luminosità"** (disattivata all'inizio) con un campo percentuale,
+  **default 5%** (`hexVariation` in `config/app.config.ts`: default 5, minimo 0,5, massimo 50).
+- Se attiva, le 3 immagini usano nell'ordine: **(1) esadecimale −percentuale, (2) esadecimale impostato,
+  (3) esadecimale +percentuale**.
+- Calcolo in **OKLCH** (`lib/oklch.ts`): cambia solo la luminosità **L**, mantenendo tinta (h) e croma (C).
+  La percentuale è in **punti di L** (L va da 0 a 1: 5% = −0,05 / +0,05). Se la variante con la stessa croma non
+  esiste in sRGB, la croma viene ridotta al minimo indispensabile e l'interfaccia mostra una nota.
+- **Colore troppo scuro o troppo chiaro**: se L − percentuale < 0 o L + percentuale > 1 (o se la variante non cambia
+  esadecimale) l'app mostra un messaggio e **blocca la generazione** finché non si riduce/aumenta la percentuale o
+  si disattiva la variazione.
+- Le varianti si calcolano nel browser; il server riceve solo l'esadecimale di ogni chiamata e lo sostituisce a
+  `{TARGET_HEX}` come sempre (validazione e sostituzione invariate).
+- **Disattivata**: le 3 immagini usano tutte l'esadecimale impostato. **Con 1 immagine** si usa sempre l'esadecimale
+  impostato (la casella non compare).
+
 ## File scaricati
 
 Logica in `lib/filenames.ts`. I nomi originali sono usati senza estensione.
 
 - **"Da campione"**: **`<nome master>-<nome destinazione>.jpg`**, es. `gomitolo_mohair-rosso.jpg`.
   Con 3 immagini si aggiunge **`-1`, `-2`, `-3`**: `gomitolo_mohair-rosso-1.jpg`, ecc.
-- **"Da codice colore"**: **`<nome master>_<nome colore>.jpg`**, oppure **`<nome master>_<esadecimale senza #>.jpg`**
-  se il nome colore è vuoto. Con 3 immagini si aggiunge **`_1`, `_2`, `_3`**.
-  Es. `gomitolo-blu_navy_1.jpg`, `gomitolo-blu_1A2B3C.jpg`.
-  Nel nome colore spazi e caratteri speciali diventano trattini e gli accenti vengono tolti
-  (`"Blu notte è"` → `Blu-notte-e`); le maiuscole restano come digitate.
+- **"Da codice colore"**: **`<nome master>_<esadecimale usato senza #>_<nome colore>.jpg`**; senza nome colore
+  **`<nome master>_<esadecimale usato senza #>.jpg`**. Es. `master_1A2B3C_navy.jpg`, `master_1A2B3C.jpg`.
+  - Con la **variazione di luminosità** ogni file ha il **proprio esadecimale** (nessun suffisso):
+    `master_0E1F2F_navy.jpg`, `master_1A2B3C_navy.jpg`, `master_263849_navy.jpg`.
+  - Con **3 immagini e variazione disattivata** si aggiunge **`_1`, `_2`, `_3`** per evitare duplicati:
+    `master_1A2B3C_navy_1.jpg`, ecc.
+  - Nel nome colore spazi e caratteri speciali diventano trattini e gli accenti vengono tolti
+    (`"Blu notte è"` → `Blu-notte-e`); le maiuscole restano come digitate.
 - Nomi e "Riprova" usano gli input dell'**ultima generazione**, anche se nel frattempo si cambia un file o il colore.
 
 ## Accesso e segreti
@@ -127,8 +148,9 @@ Le modifiche future devono restare coerenti con quanto segue.
    - "Colore di destinazione" (`ColorCard.tsx`): a sinistra un riquadro grande riempito con il colore e una
      pillola con l'esadecimale (tratteggiato con "Nessun colore" se vuoto); a destra il campo "Codice esadecimale *"
      in monospace con accanto il pulsante color picker (bordo arcobaleno con pallino del colore), messaggio di
-     validazione, poi "Nome colore (facoltativo)" con la nota "Serve solo per il nome del file…" e l'anteprima del
-     nome file.
+     validazione, poi "Nome colore (facoltativo)" con la nota "Serve solo per il nome del file…" e l'elenco dei
+     nomi file che verranno salvati. Con la variazione di luminosità attiva il riquadro si divide in **tre bande**
+     affiancate (−%, impostato, +%) ciascuna con la pillola dell'esadecimale.
 4. **Card "Prompt" + "Impostazioni"** affiancati (prompt ~1,6/2,6 della larghezza, separatore verticale):
    - Prompt: icona matita, nota "Le modifiche valgono solo per questa sessione…", textarea monospace,
      sotto "Prompt di default / modificato (modalità) · N caratteri" e, in "Da codice colore",
@@ -136,6 +158,9 @@ Le modifiche future devono restare coerenti con quanto segue.
      riquadro di avviso rosso tenue sotto la textarea.
    - Impostazioni: icona ingranaggio; select "Modello" con icona scintille; "Numero di immagini" come due pulsanti
      radio affiancati ("1 immagine" / "3 immagini", quello attivo con bordo e sfondo accento tenue);
+     in "Da codice colore" con 3 immagini, riquadro **"Varia luminosità"** (`HexVariation.tsx`: casella, campo %,
+     tre campioni affiancati con esadecimale ed etichetta "1 · −5%", "2 · impostato", "3 · +5%", avviso rosso se il
+     colore è troppo chiaro/scuro, nota se la saturazione è stata ridotta; sfondo accento tenue quando attivo);
      pulsante grande arrotondato "Genera immagine" / "Genera 3 immagini" (icona scintille + freccia);
      sotto, cosa manca o il peso degli input.
 5. **Card "Risultato"**:
@@ -144,8 +169,9 @@ Le modifiche future devono restare coerenti con quanto segue.
      "Dettagli immagine" (Dimensioni, Dimensione file, Modello, Colore con pallino solo in "Da codice colore",
      Generata il) e pulsante "Scarica immagine";
      nell'intestazione pillola verde "Generata in N secondi".
-   - **3 immagini**: tre riquadri affiancati "Immagine 1/2/3" con lente, immagine, "Generata in N s" e
-     pulsante "Scarica"; nell'intestazione pillola "N di 3 pronte".
+   - **3 immagini**: tre riquadri affiancati "Immagine 1/2/3" con lente, immagine, sotto l'immagine (solo in
+     "Da codice colore") l'**esadecimale usato** con pallino e, con la variazione, l'etichetta "−5%/impostato/+5%";
+     poi "Generata in N s" e pulsante "Scarica"; nell'intestazione pillola "N di 3 pronte".
    - In attesa: rotellina e secondi trascorsi. In errore: riquadro rosso tenue con messaggio e "Riprova".
    - La lente apre lo **zoom a schermo intero** (`Lightbox.tsx`) con "Scarica"; si chiude con Esc o clic fuori.
 
@@ -173,7 +199,8 @@ Palette calda, neutra con accento marrone-cuoio:
 - Pulsanti: primario pieno accento; secondario con bordo; "tenue" (sfondo accento chiaro) per
   "Scarica immagine"; pulsante "Genera" a pillola.
 - Componenti: `app/Generator.tsx` (stato e logica), `app/components/ModeSwitch.tsx`,
-  `app/components/UploadCard.tsx`, `app/components/ColorCard.tsx`, `app/components/ResultsSection.tsx`,
+  `app/components/UploadCard.tsx`, `app/components/ColorCard.tsx`, `app/components/HexVariation.tsx`,
+  `app/components/ResultsSection.tsx`,
   `app/components/Lightbox.tsx`, `app/components/Logo.tsx`.
 - Pagina di login nello stesso stile (logo, titolo serif, card centrata).
 
@@ -191,10 +218,11 @@ Le regole responsive stanno **in fondo** a `globals.css`, così sovrascrivono qu
 
 | Percorso | Contenuto |
 |---|---|
-| `config/app.config.ts` | Modelli, `outputLongSide`, limiti di size, qualità, formato, compressione, limiti upload |
+| `config/app.config.ts` | Modelli, `outputLongSide`, limiti di size, qualità, formato, compressione, limiti upload, `hexVariation` |
 | `config/default-prompt.txt` | Prompt di default "Da campione" (non modificare senza richiesta) |
 | `config/hex-prompt.txt` | Prompt di default "Da codice colore" con `{TARGET_HEX}` (non modificare senza richiesta) |
 | `lib/hex.ts` | Validazione/normalizzazione dell'esadecimale e sostituzione di `{TARGET_HEX}` |
+| `lib/oklch.ts` | Conversioni sRGB ⇄ OKLCH e varianti di luminosità |
 | `lib/filenames.ts` | Nomi dei file scaricati per le due modalità |
 | `lib/openai-edit.ts` | Chiamata a `images.edit` e traduzione degli errori |
 | `lib/output-size.ts` | Lettura dimensioni master e calcolo della size di output |
