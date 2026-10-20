@@ -28,17 +28,21 @@ export function sampleDownloadName(
 }
 
 /**
- * Modalità "Da codice colore": <master>_<nome colore o esadecimale senza #>.jpg; con più immagini
- * _1, _2, _3 (es. gomitolo-blu_navy_1.jpg, gomitolo-blu_1A2B3C.jpg).
+ * Modalità "Da codice colore": <master>_<esadecimale usato senza #>[_<nome colore>].jpg
+ * (es. master_1A2B3C_navy.jpg, master_1A2B3C.jpg). Con più immagini senza variazione di luminosità
+ * (stesso esadecimale) si aggiunge _1, _2, _3; con la variazione ogni file ha già il proprio esadecimale.
  */
 export function hexDownloadName(
   masterName: string,
-  hex: string,
+  hexUsed: string,
   colorName: string,
   index: number,
   total: number,
+  variation: boolean,
 ): string {
-  const color = slugifyColorName(colorName) || hex.replace(/^#/, "");
-  const base = [baseName(masterName) || "immagine", color].join("_");
-  return total > 1 ? `${base}_${index + 1}.jpg` : `${base}.jpg`;
+  const parts = [baseName(masterName) || "immagine", hexUsed.replace(/^#/, "")];
+  const color = slugifyColorName(colorName);
+  if (color) parts.push(color);
+  if (total > 1 && !variation) parts.push(String(index + 1));
+  return `${parts.join("_")}.jpg`;
 }

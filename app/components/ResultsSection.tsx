@@ -17,20 +17,37 @@ import {
 import { formatMB } from "@/lib/upload";
 import Lightbox from "./Lightbox";
 
-/** `hex` è presente solo nella modalità "Da codice colore". */
-export type Result =
-  | { status: "pending"; startedAt: number; model: string; size?: string; hex?: string }
-  | {
-      status: "ok";
-      url: string;
-      seconds: number;
-      bytes: number;
-      size: string;
-      model: string;
-      hex?: string;
-      finishedAt: number;
-    }
-  | { status: "error"; error: string; model: string; hex?: string };
+/**
+ * `hex` (esadecimale usato) è presente solo nella modalità "Da codice colore"; `hexLabel` solo con la
+ * variazione di luminosità (es. "−5%", "impostato", "+5%").
+ */
+type HexInfo = { hex?: string; hexLabel?: string };
+
+export type Result = HexInfo &
+  (
+    | { status: "pending"; startedAt: number; model: string; size?: string }
+    | {
+        status: "ok";
+        url: string;
+        seconds: number;
+        bytes: number;
+        size: string;
+        model: string;
+        finishedAt: number;
+      }
+    | { status: "error"; error: string; model: string }
+  );
+
+function HexTag({ result }: { result: HexInfo }) {
+  if (!result.hex) return null;
+  return (
+    <span className="hex-tag">
+      <span className="swatch-dot" style={{ background: result.hex }} aria-hidden="true" />
+      <span className="mono">{result.hex}</span>
+      {result.hexLabel && <span className="hex-tag-label">{result.hexLabel}</span>}
+    </span>
+  );
+}
 
 type Props = {
   results: Result[];
@@ -136,6 +153,7 @@ export default function ResultsSection({ results, canRetry, fileName, onRetry }:
                 )}
               </header>
               <ResultImage result={r} onZoom={() => setZoomed(i)} compact />
+              <HexTag result={r} />
               <footer>
                 {r.status === "ok" && (
                   <>
@@ -171,7 +189,10 @@ export default function ResultsSection({ results, canRetry, fileName, onRetry }:
       {zoomedResult?.status === "ok" && zoomed !== null && (
         <Lightbox
           url={zoomedResult.url}
-          title={results.length > 1 ? `Immagine ${zoomed + 1}` : "Immagine generata"}
+          title={
+            (results.length > 1 ? `Immagine ${zoomed + 1}` : "Immagine generata") +
+            (zoomedResult.hex ? ` · ${zoomedResult.hex}` : "")
+          }
           downloadName={fileName(zoomed)}
           onClose={() => setZoomed(null)}
         />
@@ -273,6 +294,7 @@ function SingleResult({
               <dd className="color-dd">
                 <span className="swatch-dot" style={{ background: result.hex }} aria-hidden="true" />
                 {result.hex}
+                {result.hexLabel && ` (${result.hexLabel})`}
               </dd>
             </div>
           )}

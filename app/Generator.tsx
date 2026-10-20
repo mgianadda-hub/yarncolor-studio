@@ -15,9 +15,11 @@ import {
 import { appConfig } from "@/config/app.config";
 import { hexDownloadName, sampleDownloadName } from "@/lib/filenames";
 import { TARGET_HEX_PLACEHOLDER, normalizeHex } from "@/lib/hex";
+import { lightnessVariants } from "@/lib/oklch";
 import { computeOutputSize, readImageDimensions } from "@/lib/output-size";
 import { formatMB, validateUploads } from "@/lib/upload";
 import ColorCard from "./components/ColorCard";
+import HexVariation, { variantLabel } from "./components/HexVariation";
 import ModeSwitch, { type Mode } from "./components/ModeSwitch";
 import ResultsSection, { type Result } from "./components/ResultsSection";
 import UploadCard, { type SelectedImage } from "./components/UploadCard";
@@ -27,21 +29,27 @@ type Job = {
   mode: Mode;
   master: File;
   destination?: File;
-  /** Solo modalità "Da codice colore": esadecimale normalizzato e nome colore (quest'ultimo solo per il nome file). */
-  hex?: string;
+  /**
+   * Solo modalità "Da codice colore": esadecimale usato da ciascuna immagine (diversi con la variazione
+   * di luminosità), etichetta della variante e nome colore (quest'ultimo solo per il nome file).
+   */
+  hexes?: string[];
+  hexLabels?: string[];
+  variation?: boolean;
   colorName?: string;
   prompt: string;
   model: string;
   size?: string;
 };
 
-async function generateOne(job: Job): Promise<{ blob: Blob; size: string }> {
+async function generateOne(job: Job, index: number): Promise<{ blob: Blob; size: string }> {
   const form = new FormData();
   form.append("mode", job.mode);
   form.append("master", job.master);
   if (job.mode === "sample" && job.destination) form.append("destination", job.destination);
   // Il nome colore non viene mai inviato: serve solo per il nome del file.
-  if (job.mode === "hex" && job.hex) form.append("hex", job.hex);
+  const hex = job.hexes?.[index];
+  if (job.mode === "hex" && hex) form.append("hex", hex);
   form.append("prompt", job.prompt);
   form.append("model", job.model);
 
@@ -66,7 +74,14 @@ async function generateOne(job: Job): Promise<{ blob: Blob; size: string }> {
 
 function fileNameFor(job: Job, index: number, total: number): string {
   return job.mode === "hex"
-    ? hexDownloadName(job.master.name, job.hex ?? "", job.colorName ?? "", index, total)
+    ? hexDownloadName(
+        job.master.name,
+        job.hexes?.[index] ?? "",
+        job.colorName ?? "",
+        index,
+        total,
+        !!job.variation,
+      )
     : sampleDownloadName(job.master.name, job.destination?.name ?? "", index, total);
 }
 
@@ -84,6 +99,9 @@ export default function Generator({
   const [prompts, setPrompts] = useState<Record<Mode, string>>(defaultPrompts);
   const [model, setModel] = useState<string>(appConfig.defaultModel);
   const [count, setCount] = useState<number>(appConfig.imageCountOptions[0]);
+  // Variazione di luminosità (solo "Da codice colore" con 3 immagini).
+  const [variationOn, setVariationOn] = useState(false);
+  const [percentInput, setPercentInput] = useState(String(appConfig.hexVariation.defaultPercent));
   const [results, setResults] = useState<Result[]>([]);
   const [, setTick] = useState(0);
   const resultUrls = useRef<string[]>([]);
@@ -128,6 +146,23 @@ export default function Generator({
   const isHex = mode === "hex";
   const hex = normalizeHex(hexInput);
   const missingPlaceholder = isHex && !prompt.includes(TARGET_HEX_PLACEHOLDER);
+
+  // Variazione di luminosità: disponibile solo in "Da codice colore" con più immagini.
+  const variationAvailable = isHex && count === 3;
+  const variationActive = variationAvailable && variationOn;
+  const { minPercent, maxPercent } = appConfig.hexVariation;
+  const percent = Number(percentInput.replace(",", "."));
+  const percentError =
+    percentInput.trim() === "" || !Number.isFinite(percent) || percent < minPercent || percent > maxPercent
+      ? `Inserisci una percentuale tra ${minPercent.toLocaleString("it-IT")} e ${maxPercent}.`
+      : null;
+  const variation = variationActive && hex && !percentError ? lightnessVariants(hex, percent) : null;
+  /** Esadecimale e etichetta di ciascuna immagine. */
+  const slotColors: { hex: string; label: string }[] | null = !hex
+    ? null
+    : variationActive && variation?.ok
+      ? variation.variants.map((v) => ({ hex: v.hex, label: variantLabel(v.deltaPercent) }))
+      : Array.from({ length: count }, () => ({ hex, label: "impostato" }));
   const uploadError = master
     ? isHex
       ? validateUploads(master.file, null, false)
@@ -148,7 +183,11 @@ export default function Generator({
           ? "Il prompt è vuoto."
           : missingPlaceholder
             ? `Il prompt non contiene ${TARGET_HEX_PLACEHOLDER}.`
-            : null;
+            : variationActive && percentError
+              ? "Percentuale di variazione non valida."
+              : variationActive && variation && !variation.ok
+                ? "La variazione di luminosità non è applicabile a questo colore."
+                : null;
 
   const canGenerate = !missing && !uploadError && master?.output?.ok === true && !running;
   const inputBytes = (master?.file.size ?? 0) + (!isHex ? (destination?.file.size ?? 0) : 0);
@@ -158,11 +197,13 @@ export default function Generator({
   }
 
   async function runSlot(index: number, current: Job) {
-    const { model, size, hex } = current;
+    const { model, size } = current;
+    const hex = current.hexes?.[index];
+    const hexLabel = current.variation ? current.hexLabels?.[index] : undefined;
     const startedAt = Date.now();
-    setResult(index, { status: "pending", startedAt, model, size, hex });
+    setResult(index, { status: "pending", startedAt, model, size, hex, hexLabel });
     try {
-      const { blob, size: outputSize } = await generateOne(current);
+      const { blob, size: outputSize } = await generateOne(current, index);
       const url = URL.createObjectURL(blob);
       resultUrls.current.push(url);
       const finishedAt = Date.now();
@@ -174,6 +215,7 @@ export default function Generator({
         size: outputSize || size || "",
         model,
         hex,
+        hexLabel,
         finishedAt,
       });
     } catch (e) {
@@ -182,6 +224,7 @@ export default function Generator({
         error: e instanceof Error ? e.message : "Errore sconosciuto.",
         model,
         hex,
+        hexLabel,
       });
     }
   }
@@ -194,7 +237,9 @@ export default function Generator({
       mode,
       master: master.file,
       destination: isHex ? undefined : destination?.file,
-      hex: isHex ? (hex ?? undefined) : undefined,
+      hexes: isHex ? slotColors?.map((c) => c.hex) : undefined,
+      hexLabels: isHex ? slotColors?.map((c) => c.label) : undefined,
+      variation: isHex && variationActive,
       colorName: isHex ? colorName : undefined,
       prompt,
       model,
@@ -204,21 +249,24 @@ export default function Generator({
     if (isHex && hex) setHexInput(hex);
     const startedAt = Date.now();
     setResults(
-      Array.from({ length: count }, () => ({
+      Array.from({ length: count }, (_, i) => ({
         status: "pending",
         startedAt,
         model,
         size: current.size,
-        hex: current.hex,
+        hex: current.hexes?.[i],
+        hexLabel: current.variation ? current.hexLabels?.[i] : undefined,
       })),
     );
     // Una chiamata per immagine, in parallelo: ognuna parte dal master.
     for (let i = 0; i < count; i++) void runSlot(i, current);
   }
 
-  const fileNameExample =
-    isHex && hex
-      ? hexDownloadName(master?.file.name || "master", hex, colorName, 0, count)
+  const fileNameExamples =
+    isHex && slotColors && !(variationActive && !variation?.ok)
+      ? slotColors.map((c, i) =>
+          hexDownloadName(master?.file.name || "master", c.hex, colorName, i, count, variationActive),
+        )
       : null;
 
   return (
@@ -241,7 +289,8 @@ export default function Generator({
             hexInput={hexInput}
             colorName={colorName}
             disabled={running}
-            fileNameExample={fileNameExample}
+            fileNameExamples={fileNameExamples}
+            variants={variationActive && variation?.ok ? variation.variants : null}
             onHexChange={setHexInput}
             onColorNameChange={setColorName}
           />
@@ -304,7 +353,10 @@ export default function Generator({
             {isHex && !missingPlaceholder && (
               <>
                 {" "}
-                · <code>{TARGET_HEX_PLACEHOLDER}</code> sarà sostituito con {hex ?? "il codice colore"}
+                · <code>{TARGET_HEX_PLACEHOLDER}</code> sarà sostituito con{" "}
+                {variationActive && variation?.ok
+                  ? "l'esadecimale di ciascuna immagine"
+                  : (hex ?? "il codice colore")}
               </>
             )}
           </p>
@@ -358,6 +410,18 @@ export default function Generator({
               ))}
             </div>
           </fieldset>
+
+          {variationAvailable && (
+            <HexVariation
+              enabled={variationOn}
+              percentInput={percentInput}
+              percentError={percentError}
+              variation={variation}
+              disabled={running}
+              onEnabledChange={setVariationOn}
+              onPercentChange={setPercentInput}
+            />
+          )}
 
           <div className="generate-area">
             <button

@@ -2,21 +2,26 @@
 
 import { Hash, Palette, Tag } from "lucide-react";
 import { normalizeHex } from "@/lib/hex";
+import type { HexVariant } from "@/lib/oklch";
+import { variantLabel } from "./HexVariation";
 
 type Props = {
   step: number;
   hexInput: string;
   colorName: string;
   disabled: boolean;
-  /** Esempio del nome file risultante, mostrato sotto il nome colore. */
-  fileNameExample: string | null;
+  /** Nomi dei file che verranno salvati, mostrati sotto il nome colore. */
+  fileNameExamples: string[] | null;
+  /** Con la variazione di luminosità attiva: i tre colori, mostrati affiancati nell'anteprima. */
+  variants: HexVariant[] | null;
   onHexChange: (value: string) => void;
   onColorNameChange: (value: string) => void;
 };
 
 /** Modalità "Da codice colore": esadecimale obbligatorio con color picker e anteprima, nome colore facoltativo. */
 export default function ColorCard(props: Props) {
-  const { step, hexInput, colorName, disabled, fileNameExample, onHexChange, onColorNameChange } = props;
+  const { step, hexInput, colorName, disabled, fileNameExamples, variants, onHexChange, onColorNameChange } =
+    props;
   const hex = normalizeHex(hexInput);
   const invalid = hexInput.trim() !== "" && !hex;
 
@@ -32,11 +37,20 @@ export default function ColorCard(props: Props) {
 
       <div className="upload-body">
         <div
-          className={`preview-box color-preview${hex ? " has-color" : ""}`}
-          style={hex ? { background: hex } : undefined}
+          className={`preview-box color-preview${hex ? " has-color" : ""}${variants ? " is-split" : ""}`}
+          style={hex && !variants ? { background: hex } : undefined}
           aria-hidden="true"
         >
-          {hex ? (
+          {variants ? (
+            variants.map((v, i) => (
+              <span key={i} className="color-band" style={{ background: v.hex }}>
+                <span className="color-chip">
+                  {v.hex}
+                  <small>{variantLabel(v.deltaPercent)}</small>
+                </span>
+              </span>
+            ))
+          ) : hex ? (
             <span className="color-chip">{hex}</span>
           ) : (
             <span className="preview-empty">
@@ -102,13 +116,16 @@ export default function ColorCard(props: Props) {
             />
             <p className="hint-row">
               Serve solo per il nome del file, non viene inviato al modello.
-              {fileNameExample && (
-                <>
-                  {" "}
-                  File: <span className="mono break">{fileNameExample}</span>
-                </>
-              )}
             </p>
+            {fileNameExamples && (
+              <ul className="file-examples" aria-label="Nomi dei file">
+                {fileNameExamples.map((name, i) => (
+                  <li key={i} className="mono break">
+                    {name}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       </div>
