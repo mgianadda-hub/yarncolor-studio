@@ -53,6 +53,14 @@ export const appConfig = {
     maxPercent: 50,
   },
 
+  /** Autenticazione Google tramite AWS Cognito (solo in produzione, vedi CLAUDE.md). */
+  auth: {
+    /** Indirizzo di produzione: base della Callback URL e della Sign-out URL registrate in Cognito. */
+    productionUrl: "https://yarncolor-studio.vercel.app",
+    /** Durata della sessione: uso interno, si privilegia la comodità. */
+    sessionMaxAgeDays: 30,
+  },
+
   /** Formati accettati per master e destinazione. */
   acceptedImageTypes: ["image/jpeg", "image/png", "image/webp"],
   /** Peso massimo complessivo dei due file: Vercel accetta richieste fino a ~4,5 MB. */

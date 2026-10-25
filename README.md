@@ -15,10 +15,11 @@ Le decisioni di progetto (parametri API, modelli, interfaccia, deploy) sono racc
 | `config/hex-prompt.txt` | Prompt di default della modalità "Da codice colore" (con `{TARGET_HEX}`) |
 | `config/app.config.ts` | Modelli selezionabili, lato lungo dell'output (`outputLongSide`, 1504), qualità, formato JPEG e compressione, limiti di upload |
 
-Variabili d'ambiente (vedi `.env.example`), da impostare su Vercel per **Production** e **Preview**:
+Variabili d'ambiente (vedi `.env.example`), da impostare su Vercel:
 
 - `OPENAI_API_KEY`: chiave OpenAI, usata solo lato server.
-- `APP_PASSWORD`: password di accesso all'app. Cambiarla invalida le sessioni aperte.
+- `COGNITO_REGION`, `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID`, `COGNITO_LOGIN_DOMAIN`, `COGNITO_ALLOWED_GROUP`,
+  `AUTH_SECRET`: accesso con Google tramite AWS Cognito (solo in produzione; vedi `CLAUDE.md`).
 
 ## Parametri API
 
@@ -31,7 +32,8 @@ Limiti dei modelli: lati multipli di 16, rapporto massimo 3:1, massimo 3840×216
 ## Deploy su Vercel
 
 - Framework Preset: **Next.js** (comandi di build predefiniti).
-- Variabili `OPENAI_API_KEY` e `APP_PASSWORD` per Production e Preview.
+- Variabile `OPENAI_API_KEY` per Production e Preview; variabili Cognito e `AUTH_SECRET` per Production.
+- Nelle anteprime l'accesso dell'app è disattivato (sono protette da Vercel Deployment Protection).
 - Ogni push su un branch crea un deploy di anteprima; il branch `main` va in produzione.
 - Piano Hobby: le route di generazione hanno `maxDuration = 300` secondi.
 
