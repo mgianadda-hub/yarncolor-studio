@@ -167,7 +167,8 @@ Il login con password e `APP_PASSWORD` sono stati rimossi.
 - Autenticazione: Claude la prova con un **Cognito simulato** (authorize, token con controllo PKCE e assenza di
   client secret, JWKS, logout) dietro un proxy HTTPS locale che simula i domini reali. Poiché le anteprime non hanno
   autenticazione, il **login reale con Cognito si verifica direttamente in produzione** dopo il merge (scelta
-  dell'utente); se non funziona si annulla il merge.
+  dell'utente); se non funziona si annulla il merge. Il primo accesso reale in produzione è stato
+  **verificato dall'utente il 25/10/2026** (PR #6).
 
 ## Interfaccia
 
