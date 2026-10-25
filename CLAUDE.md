@@ -114,19 +114,60 @@ Logica in `lib/filenames.ts`. I nomi originali sono usati senza estensione.
 
 ## Accesso e segreti
 
-- Accesso protetto da password: variabile d'ambiente **`APP_PASSWORD`**. Login su `/login`, cookie di sessione
-  firmato HMAC (`lib/auth.ts`), controllo in `proxy.ts` su tutte le pagine e API tranne il login.
-  Cambiare la password invalida le sessioni.
+Accesso con **Google tramite AWS Cognito** (Hosted UI, **App Client pubblico con PKCE, senza client secret**).
+Il login con password e `APP_PASSWORD` sono stati rimossi.
+
+- **Dove è attivo**: ovunque tranne nei deploy di anteprima. Con `VERCEL_ENV=preview` l'autenticazione dell'app è
+  **disattivata** (le anteprime sono protette da Vercel Deployment Protection): niente controllo, `/login` porta alla
+  home e il pulsante "Esci" non compare. In produzione (e in caso di dubbio, es. variabile assente) è **attiva**;
+  se manca la configurazione l'app resta chiusa ("configurazione incompleta"). Logica in `lib/auth/config.ts`.
+- **Variabili d'ambiente** (Vercel, Production): `COGNITO_REGION`, `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID`,
+  `COGNITO_LOGIN_DOMAIN` (dominio della Hosted UI, con o senza `https://`), `COGNITO_ALLOWED_GROUP`, `AUTH_SECRET`.
+  **`COGNITO_CLIENT_SECRET` non esiste e non va richiesta.** Il nome del gruppo si legge solo dalla variabile.
+- **Librerie**: `openid-client` (PKCE, state, nonce, scambio del codice, verifica del token di identità inclusa la
+  firma con le chiavi del pool) e `jose` (cookie cifrati).
+- **Flusso** (tutto lato server):
+  1. `/login`: pulsante **"Accedi con Google"** → `GET /api/auth/login`, che crea PKCE/state/nonce in un cookie
+     temporaneo cifrato (`yc_login`, 10 minuti) e reindirizza a `/oauth2/authorize` della Hosted UI con
+     `identity_provider=Google` e scope `openid email profile`. Il login riparte sempre dal dominio di produzione.
+  2. `GET /api/auth/callback`: scambio del codice, verifica del token di identità, lettura di `cognito:groups`.
+     Se l'utente è nel gruppo `COGNITO_ALLOWED_GROUP` crea la sessione e torna alla pagina richiesta; altrimenti
+     `/login?error=unauthorized` con il messaggio "Accesso non autorizzato" e il pulsante
+     "Esci e accedi con un altro account" (che chiude anche la sessione Cognito).
+  3. **Sessione**: cookie `yc_session` HTTP-only, Secure, SameSite=Lax, cifrato (JWE A256GCM) con chiave derivata da
+     `AUTH_SECRET`; contiene email, nome e gruppi (nessun token Cognito). **Durata 30 giorni**
+     (`auth.sessionMaxAgeDays` in `config/app.config.ts`): uso interno, si privilegia la comodità. Cambiare
+     `AUTH_SECRET` invalida tutte le sessioni; togliere un utente dal gruppo vale al login successivo (il proxy
+     controlla comunque che la sessione contenga il gruppo configurato).
+  4. **`proxy.ts`** protegge tutte le pagine (redirect a `/login?next=…`) e le API (401), tranne `/login`,
+     `/api/auth/login`, `/api/auth/callback`, `/api/logout`.
+  5. **Logout** (`POST /api/logout`): cancella i cookie e reindirizza a `/logout` di Cognito (`client_id`,
+     `logout_uri`), che chiude la sessione Cognito e torna a `/login`. La sessione Google del browser resta aperta.
+- **Indirizzi registrati nell'App Client Cognito** (basati su `auth.productionUrl` = `https://yarncolor-studio.vercel.app`
+  in `config/app.config.ts`):
+  - Callback URL: `https://yarncolor-studio.vercel.app/api/auth/callback`
+  - Sign-out URL: `https://yarncolor-studio.vercel.app/login`
+  - App Client: pubblico (senza secret), grant "Authorization code", scope `openid` `email` `profile`,
+    identity provider Google.
+- **Nuovi utenti**: un utente Google viene creato nel pool al primo login (che risulta "non autorizzato"); va poi
+  aggiunto al gruppo dalla console Cognito e al login successivo entra.
+- La pagina di login usa il logo "G" di Google nei colori ufficiali (`app/components/GoogleIcon.tsx`): unica eccezione
+  alla regola dei token di colore, richiesta dalle linee guida di Google.
 - **`OPENAI_API_KEY`** resta **solo lato server** (mai esposta al browser).
 
 ## Deploy e verifiche
 
-- **Vercel, piano Hobby** per ora. Variabili d'ambiente impostate per Production e Preview.
+- **Vercel, piano Hobby** per ora. `OPENAI_API_KEY` per Production e Preview; variabili Cognito e `AUTH_SECRET`
+  per Production.
 - `main` va in produzione; ogni push su altro branch crea un deploy di anteprima.
 - Si lavora su un branch e si apre una pull request verso `main`; il merge lo fa l'utente.
 - **L'utente non esegue nulla in locale.** Claude, prima di ogni push, esegue typecheck, build e test
   dell'interfaccia con Playwright contro un **server OpenAI simulato** (`OPENAI_BASE_URL` verso un mock locale).
   Le **chiamate reali a OpenAI si verificano sui deploy di anteprima** Vercel.
+- Autenticazione: Claude la prova con un **Cognito simulato** (authorize, token con controllo PKCE e assenza di
+  client secret, JWKS, logout) dietro un proxy HTTPS locale che simula i domini reali. Poiché le anteprime non hanno
+  autenticazione, il **login reale con Cognito si verifica direttamente in produzione** dopo il merge (scelta
+  dell'utente); se non funziona si annulla il merge.
 
 ## Interfaccia
 
@@ -136,7 +177,8 @@ Le modifiche future devono restare coerenti con quanto segue.
 ### Struttura della pagina (dall'alto)
 
 1. **Intestazione**: logo a gomitolo (`app/components/Logo.tsx`) + titolo "YarnColor Studio" in serif +
-   sottotitolo; a destra il pulsante "Esci" con icona (su schermi piccoli solo icona).
+   sottotitolo; a destra il pulsante "Esci" con icona (su schermi piccoli solo icona; nascosto nelle anteprime,
+   dove l'autenticazione è disattivata).
 2. **Selettore di modalità** (`ModeSwitch.tsx`): due opzioni affiancate "Da campione" (Master + foto del filato)
    e "Da codice colore" (Master + codice esadecimale), con icona in cerchio; quella attiva ha sfondo accento tenue
    e icona piena. Sotto i 520 px resta solo l'etichetta. Disattivato durante la generazione.
@@ -202,7 +244,8 @@ Palette calda, neutra con accento marrone-cuoio:
   `app/components/UploadCard.tsx`, `app/components/ColorCard.tsx`, `app/components/HexVariation.tsx`,
   `app/components/ResultsSection.tsx`,
   `app/components/Lightbox.tsx`, `app/components/Logo.tsx`.
-- Pagina di login nello stesso stile (logo, titolo serif, card centrata).
+- Pagina di login nello stesso stile (logo, titolo serif, card centrata) con il solo pulsante
+  "Accedi con Google" (bordo, logo "G"); in caso di errore, riquadro rosso tenue con il messaggio sopra il pulsante.
 
 ### Smartphone
 
@@ -218,7 +261,7 @@ Le regole responsive stanno **in fondo** a `globals.css`, così sovrascrivono qu
 
 | Percorso | Contenuto |
 |---|---|
-| `config/app.config.ts` | Modelli, `outputLongSide`, limiti di size, qualità, formato, compressione, limiti upload, `hexVariation` |
+| `config/app.config.ts` | Modelli, `outputLongSide`, limiti di size, qualità, formato, compressione, limiti upload, `hexVariation`, `auth` |
 | `config/default-prompt.txt` | Prompt di default "Da campione" (non modificare senza richiesta) |
 | `config/hex-prompt.txt` | Prompt di default "Da codice colore" con `{TARGET_HEX}` (non modificare senza richiesta) |
 | `lib/hex.ts` | Validazione/normalizzazione dell'esadecimale e sostituzione di `{TARGET_HEX}` |
@@ -227,7 +270,10 @@ Le regole responsive stanno **in fondo** a `globals.css`, così sovrascrivono qu
 | `lib/openai-edit.ts` | Chiamata a `images.edit` e traduzione degli errori |
 | `lib/output-size.ts` | Lettura dimensioni master e calcolo della size di output |
 | `lib/upload.ts` | Validazione input, formattazione pesi |
-| `lib/auth.ts`, `proxy.ts`, `app/login`, `app/api/login`, `app/api/logout` | Accesso con password |
+| `lib/auth/config.ts` | Attivazione (produzione/anteprime), variabili Cognito, URL di callback/logout |
+| `lib/auth/session.ts` | Cookie cifrati di sessione e del login in corso |
+| `lib/auth/oidc.ts` | Client OpenID Connect per Cognito (PKCE, verifica del token, gruppi) |
+| `proxy.ts`, `app/login`, `app/api/auth/login`, `app/api/auth/callback`, `app/api/logout` | Accesso con Google/Cognito |
 | `lib/prompt.ts` | Lettura dei due prompt di default |
 | `app/api/generate/route.ts` | Generazione di una immagine (entrambe le modalità) |
 | `app/page.tsx`, `app/Generator.tsx`, `app/components/*` | Interfaccia |

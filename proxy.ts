@@ -1,16 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
+import { isAuthEnabled } from "@/lib/auth/config";
+import { SESSION_COOKIE, readSessionToken } from "@/lib/auth/session";
 
-const PUBLIC_PATHS = ["/login", "/api/login"];
+// Login, ritorno da Cognito e logout devono funzionare anche senza sessione.
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/callback", "/api/logout"];
 
 export async function proxy(request: NextRequest) {
+  // Anteprime Vercel: protette da Vercel Deployment Protection, autenticazione dell'app disattivata.
+  if (!isAuthEnabled()) return NextResponse.next();
+
   const { pathname, search } = request.nextUrl;
   if (PUBLIC_PATHS.includes(pathname)) return NextResponse.next();
 
-  const secret = process.env.APP_PASSWORD;
-  const authenticated =
-    !!secret && (await verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value, secret));
-  if (authenticated) return NextResponse.next();
+  const session = await readSessionToken(request.cookies.get(SESSION_COOKIE)?.value);
+  const allowedGroup = process.env.COGNITO_ALLOWED_GROUP?.trim();
+  if (session && allowedGroup && session.groups.includes(allowedGroup)) return NextResponse.next();
 
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Accesso non autorizzato." }, { status: 401 });

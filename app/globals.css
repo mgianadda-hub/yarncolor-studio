@@ -1360,6 +1360,14 @@ code {
   font-size: 0.78rem;
 }
 
+/* ---------- Accesso con Google ---------- */
+
+.btn-google {
+  padding: 12px 18px;
+  font-size: 1rem;
+  color: var(--text);
+}
+
 /* ---------- Schermi piccoli e touch (in fondo: sovrascrivono le regole base) ---------- */
 
 @media (max-width: 520px) {
