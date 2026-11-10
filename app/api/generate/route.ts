@@ -17,7 +17,7 @@ function badRequest(error: string) {
 
 /**
  * Genera UNA immagine. Modalità:
- * - "sample" (Da campione): master + destinazione;
+ * - "sample" (Da campione) e "pack" (Multipack, un master per chiamata): master + destinazione;
  * - "hex" (Da codice colore): solo master; {TARGET_HEX} nel prompt diventa l'esadecimale normalizzato.
  * Restituisce il JPEG in binario.
  */
@@ -26,14 +26,18 @@ export async function POST(request: Request) {
   if (!form) return badRequest("Richiesta non valida.");
 
   const mode = String(form.get("mode") ?? "sample");
-  if (mode !== "sample" && mode !== "hex") return badRequest(`Modalità non valida: ${mode}`);
+  if (mode !== "sample" && mode !== "hex" && mode !== "pack") {
+    return badRequest(`Modalità non valida: ${mode}`);
+  }
+  // "Multipack" invia le immagini come "Da campione": [master, destinazione].
+  const withDestination = mode !== "hex";
 
   const master = form.get("master");
-  const destination = mode === "sample" ? form.get("destination") : null;
+  const destination = withDestination ? form.get("destination") : null;
   let prompt = String(form.get("prompt") ?? "");
   const model = String(form.get("model") ?? "");
 
-  const uploadError = validateUploads(master, destination, mode === "sample");
+  const uploadError = validateUploads(master, destination, withDestination);
   if (uploadError) return badRequest(uploadError);
   if (!isAllowedModel(model)) return badRequest(`Modello non consentito: ${model}`);
   if (!prompt.trim()) return badRequest("Il prompt è vuoto.");
@@ -65,7 +69,7 @@ export async function POST(request: Request) {
   try {
     const jpeg = await editImage({
       master: masterFile,
-      destination: mode === "sample" ? (destination as File) : undefined,
+      destination: withDestination ? (destination as File) : undefined,
       prompt,
       model,
       size: output.size,

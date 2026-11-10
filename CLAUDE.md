@@ -1,11 +1,13 @@
 # YarnColor Studio — decisioni di progetto
 
 App Next.js (App Router, TypeScript) pubblicata su Vercel. Ricolora la foto di un gomitolo
-(**immagine master**) tramite l'endpoint di image edit di OpenAI, in due **modalità** alternative:
+(**immagine master**) tramite l'endpoint di image edit di OpenAI, in tre **modalità** (schede) alternative:
 
 - **"Da campione"** (`mode: "sample"`, default): il colore viene dal filato di un'altra immagine
   (**immagine destinazione**, un dettaglio del filato).
 - **"Da codice colore"** (`mode: "hex"`): il colore è un **codice esadecimale**; si invia solo il master.
+- **"Multipack"** (`mode: "pack"`): fino a tre master fissi (Pack 2, 5, 10 pz) ricolorati con la stessa immagine
+  destinazione; un'immagine per ogni master caricato.
 
 L'app **non elabora le immagini**: le inoltra così come sono e mostra il risultato.
 
@@ -18,7 +20,8 @@ L'app **non elabora le immagini**: le inoltra così come sono e mostra il risult
 - Endpoint: `POST /v1/images/edits` tramite l'SDK ufficiale `openai` (`client.images.edit`), in `lib/openai-edit.ts`.
 - `image`:
   - "Da campione": sempre **[master, destinazione]**, in quest'ordine;
-  - "Da codice colore": **solo [master]** (il server ignora un'eventuale destinazione).
+  - "Da codice colore": **solo [master]** (il server ignora un'eventuale destinazione);
+  - "Multipack": **[master del pack, destinazione]**, in quest'ordine, una chiamata per ogni pack caricato.
 - `quality: "high"`.
 - Output: `output_format: "jpeg"`, `output_compression: 80`.
 - `input_fidelity`: **non va passato** (per gpt-image-2 la documentazione dice di ometterlo).
@@ -26,8 +29,9 @@ L'app **non elabora le immagini**: le inoltra così come sono e mostra il risult
   a `/api/generate`, tutte partendo dal master (e dalla destinazione, in modalità "Da campione").
 - La route `/api/generate` restituisce il JPEG in binario (`image/jpeg`, header `X-Output-Size`),
   `maxDuration = 300` (limite del piano Hobby). Il client OpenAI non fa retry automatici (`maxRetries: 0`).
-- Modelli, qualità, formato e dimensione proporzionale sono **gli stessi nelle due modalità**.
-- La route riceve il campo `mode` (`sample` | `hex`); in modalità `hex` anche `hex`, cioè l'esadecimale
+- Modelli, qualità, formato e dimensione proporzionale sono **gli stessi in tutte le modalità**.
+- La route riceve il campo `mode` (`sample` | `hex` | `pack`; `pack` è trattato come `sample`: master + destinazione);
+  in modalità `hex` anche `hex`, cioè l'esadecimale
   **di quella singola immagine** (con la variazione di luminosità ogni chiamata ha il suo). Il **nome colore non
   viene mai inviato** né al server né all'API.
 - I valori stanno in `config/app.config.ts` (`quality`, `outputFormat`, `outputCompression`).
@@ -58,7 +62,8 @@ L'app **non elabora le immagini**: le inoltra così come sono e mostra il risult
 
 - Un prompt di default per modalità, **da non modificare senza richiesta esplicita dell'utente**:
   - "Da campione": **`config/default-prompt.txt`**;
-  - "Da codice colore": **`config/hex-prompt.txt`** (caricato dall'utente).
+  - "Da codice colore": **`config/hex-prompt.txt`** (caricato dall'utente);
+  - "Multipack": **`config/pack-prompt.txt`** (caricato dall'utente, senza segnaposto).
 - Nell'interfaccia il prompt della modalità attiva è in un campo di testo modificabile; le modifiche valgono
   **solo per la generazione in corso** (non vengono salvate) e ogni modalità conserva le sue.
   Il pulsante **"Ripristina"** compare quando il prompt è stato modificato.
@@ -78,6 +83,21 @@ L'app **non elabora le immagini**: le inoltra così come sono e mostra il risult
     Validato nel browser e di nuovo nel server (`normalizeHex` in `lib/hex.ts`).
   - Color picker e anteprima del colore sincronizzati con il campo di testo.
   - **"Nome colore" facoltativo**: serve **solo** per il nome del file; non va mai nel prompt né all'API.
+
+### Multipack
+
+- Tre **spazi di caricamento fissi** per i master: **"Pack 2 pz"**, **"Pack 5 pz"**, **"Pack 10 pz"**
+  (`packs` in `config/app.config.ts`: etichetta e tag `2pz`/`5pz`/`10pz`). Ognuno è **facoltativo**, ma serve
+  **almeno un master**. Ogni spazio si può svuotare con la "×".
+- Un'**immagine destinazione** (colore) obbligatoria, comune a tutti i pack, e il campo **"Nome colore"** facoltativo,
+  usato **solo** per il nome dei file e **mai inviato** al server né all'API.
+- **Generazione**: per ogni master caricato una chiamata a `/api/generate` (**in parallelo**) con
+  `mode: "pack"` e immagini **[master, destinazione]**; ogni master produce **un'immagine** (`n: 1`).
+  Il numero di immagini non si sceglie: è il numero di pack caricati.
+- Dimensione proporzionale calcolata **su ciascun master** (ogni pack mostra "Verrà generata a W × H" o l'errore,
+  es. rapporto oltre 3:1, che blocca la generazione).
+- Limite di 4 MB verificato **per ogni chiamata** (master del pack + destinazione).
+- Stato separato dalle altre schede (master, destinazione e nome colore propri).
 
 ### Variazione di luminosità ("Da codice colore", solo con 3 immagini)
 
@@ -110,6 +130,12 @@ Logica in `lib/filenames.ts`. I nomi originali sono usati senza estensione.
     `master_1A2B3C_navy_1.jpg`, ecc.
   - Nel nome colore spazi e caratteri speciali diventano trattini e gli accenti vengono tolti
     (`"Blu notte è"` → `Blu-notte-e`); le maiuscole restano come digitate.
+- **"Multipack"**: **`<nome master>-<tag pack>-<nome colore>.jpg`**; senza nome colore **`<nome master>-<tag pack>.jpg`**,
+  con tag `2pz` / `5pz` / `10pz` in base allo spazio di caricamento. Es. `gomitolo-5pz-navy.jpg`, `gomitolo-5pz.jpg`.
+  - Se il nome del master **contiene già il tag** del pack (anche in maiuscolo o con separatore: `5pz`, `5PZ`,
+    `5 pz`, `5_pz`) il tag **non viene ripetuto** (`gomitolo-5pz.png` → `gomitolo-5pz-navy.jpg`); una cifra prima
+    indica un altro pack (`15pz` non contiene `5pz`).
+  - Nome colore trattato come nelle altre schede (accenti tolti, spazi e caratteri speciali → trattini).
 - Nomi e "Riprova" usano gli input dell'**ultima generazione**, anche se nel frattempo si cambia un file o il colore.
 
 ## Accesso e segreti
@@ -180,9 +206,10 @@ Le modifiche future devono restare coerenti con quanto segue.
 1. **Intestazione**: logo a gomitolo (`app/components/Logo.tsx`) + titolo "YarnColor Studio" in serif +
    sottotitolo; a destra il pulsante "Esci" con icona (su schermi piccoli solo icona; nascosto nelle anteprime,
    dove l'autenticazione è disattivata).
-2. **Selettore di modalità** (`ModeSwitch.tsx`): due opzioni affiancate "Da campione" (Master + foto del filato)
-   e "Da codice colore" (Master + codice esadecimale), con icona in cerchio; quella attiva ha sfondo accento tenue
-   e icona piena. Sotto i 520 px resta solo l'etichetta. Disattivato durante la generazione.
+2. **Selettore di modalità** (`ModeSwitch.tsx`): tre opzioni affiancate "Da campione" (Master + foto del filato),
+   "Da codice colore" (Master + codice esadecimale) e "Multipack" (Pack 2/5/10 pz + foto del filato), con icona in
+   cerchio; quella attiva ha sfondo accento tenue e icona piena. Sotto i 520 px restano solo le etichette, centrate
+   (senza icone). Disattivato durante la generazione.
 3. **Due card affiancate** (una sotto l'altra sotto i 1080 px): "1 Immagine master" e, a seconda della modalità,
    "2 Immagine destinazione" oppure "2 Colore di destinazione", con badge numerato. Dentro: a sinistra l'anteprima grande in un riquadro tratteggiato; a destra il pulsante
    "Scegli file / o trascina un'immagine qui", nome e peso del file, per il master le "Dimensioni master" e un
@@ -194,6 +221,12 @@ Le modifiche future devono restare coerenti con quanto segue.
      validazione, poi "Nome colore (facoltativo)" con la nota "Serve solo per il nome del file…" e l'elenco dei
      nomi file che verranno salvati. Con la variazione di luminosità attiva il riquadro si divide in **tre bande**
      affiancate (−%, impostato, +%) ciascuna con la pillola dell'esadecimale.
+   - **"Multipack"**: le card occupano **tutta la larghezza**, una sotto l'altra. "1 Immagini master"
+     (`PackCard.tsx`) con **tre spazi affiancati** (uno sotto l'altro su schermi stretti): pillola con l'etichetta del
+     pack (piena quando c'è un'immagine), "×" per svuotare, anteprima tratteggiata ("Facoltativo" se vuota),
+     "Scegli file / Sostituisci" con trascinamento, nome, peso e dimensioni del file e "Verrà generata a W × H".
+     Poi "2 Colore destinazione" (`UploadCard` con anteprima limitata a 320 px di altezza) con il campo
+     "Nome colore (facoltativo)", la nota e l'elenco dei nomi file.
 4. **Card "Prompt" + "Impostazioni"** affiancati (prompt ~1,6/2,6 della larghezza, separatore verticale):
    - Prompt: icona matita, nota "Le modifiche valgono solo per questa sessione…", textarea monospace,
      sotto "Prompt di default / modificato (modalità) · N caratteri" e, in "Da codice colore",
@@ -205,7 +238,8 @@ Le modifiche future devono restare coerenti con quanto segue.
      tre campioni affiancati con esadecimale ed etichetta "1 · −5%", "2 · impostato", "3 · +5%", avviso rosso se il
      colore è troppo chiaro/scuro, nota se la saturazione è stata ridotta; sfondo accento tenue quando attivo);
      pulsante grande arrotondato "Genera immagine" / "Genera 3 immagini" (icona scintille + freccia);
-     sotto, cosa manca o il peso degli input.
+     sotto, cosa manca o il peso degli input. In "Multipack" al posto della scelta 1/3 c'è il riquadro
+     "Una per ogni pack caricato: N", il pulsante dice "Genera N immagini" e sotto compare il peso per chiamata.
 5. **Card "Risultato"**:
    - Vuota: messaggio "i risultati compariranno qui".
    - **1 immagine**: anteprima grande a sinistra con lente in alto a destra; a destra pannello
@@ -215,6 +249,9 @@ Le modifiche future devono restare coerenti con quanto segue.
    - **3 immagini**: tre riquadri affiancati "Immagine 1/2/3" con lente, immagine, sotto l'immagine (solo in
      "Da codice colore") l'**esadecimale usato** con pallino e, con la variazione, l'etichetta "−5%/impostato/+5%";
      poi "Generata in N s" e pulsante "Scarica"; nell'intestazione pillola "N di 3 pronte".
+   - **"Multipack"**: sempre **tre riquadri fissi "Pack 2 pz / 5 pz / 10 pz"**, allineati agli spazi di caricamento;
+     il riquadro di un pack senza master è tratteggiato con "Nessun master caricato". Ogni pack ha il proprio stato
+     (attesa, errore con "Riprova", risultato con "Scarica"); pillola "N di M pronte"; lo zoom mostra il nome del pack.
    - In attesa: rotellina e secondi trascorsi. In errore: riquadro rosso tenue con messaggio e "Riprova".
    - La lente apre lo **zoom a schermo intero** (`Lightbox.tsx`) con "Scarica"; si chiude con Esc o clic fuori.
 
@@ -242,7 +279,8 @@ Palette calda, neutra con accento marrone-cuoio:
 - Pulsanti: primario pieno accento; secondario con bordo; "tenue" (sfondo accento chiaro) per
   "Scarica immagine"; pulsante "Genera" a pillola.
 - Componenti: `app/Generator.tsx` (stato e logica), `app/components/ModeSwitch.tsx`,
-  `app/components/UploadCard.tsx`, `app/components/ColorCard.tsx`, `app/components/HexVariation.tsx`,
+  `app/components/UploadCard.tsx`, `app/components/PackCard.tsx`, `app/components/ColorCard.tsx`,
+  `app/components/HexVariation.tsx`,
   `app/components/ResultsSection.tsx`,
   `app/components/Lightbox.tsx`, `app/components/Logo.tsx`.
 - Pagina di login nello stesso stile (logo, titolo serif, card centrata) con il solo pulsante
@@ -262,12 +300,13 @@ Le regole responsive stanno **in fondo** a `globals.css`, così sovrascrivono qu
 
 | Percorso | Contenuto |
 |---|---|
-| `config/app.config.ts` | Modelli, `outputLongSide`, limiti di size, qualità, formato, compressione, limiti upload, `hexVariation`, `auth` |
+| `config/app.config.ts` | Modelli, `outputLongSide`, limiti di size, qualità, formato, compressione, limiti upload, `hexVariation`, `packs`, `auth` |
 | `config/default-prompt.txt` | Prompt di default "Da campione" (non modificare senza richiesta) |
 | `config/hex-prompt.txt` | Prompt di default "Da codice colore" con `{TARGET_HEX}` (non modificare senza richiesta) |
+| `config/pack-prompt.txt` | Prompt di default "Multipack" (non modificare senza richiesta) |
 | `lib/hex.ts` | Validazione/normalizzazione dell'esadecimale e sostituzione di `{TARGET_HEX}` |
 | `lib/oklch.ts` | Conversioni sRGB ⇄ OKLCH e varianti di luminosità |
-| `lib/filenames.ts` | Nomi dei file scaricati per le due modalità |
+| `lib/filenames.ts` | Nomi dei file scaricati per le tre modalità |
 | `lib/openai-edit.ts` | Chiamata a `images.edit` e traduzione degli errori |
 | `lib/output-size.ts` | Lettura dimensioni master e calcolo della size di output |
 | `lib/upload.ts` | Validazione input, formattazione pesi |
@@ -275,6 +314,6 @@ Le regole responsive stanno **in fondo** a `globals.css`, così sovrascrivono qu
 | `lib/auth/session.ts` | Cookie cifrati di sessione e del login in corso |
 | `lib/auth/oidc.ts` | Client OpenID Connect per Cognito (PKCE, verifica del token, gruppi) |
 | `proxy.ts`, `app/login`, `app/api/auth/login`, `app/api/auth/callback`, `app/api/logout` | Accesso con Google/Cognito |
-| `lib/prompt.ts` | Lettura dei due prompt di default |
-| `app/api/generate/route.ts` | Generazione di una immagine (entrambe le modalità) |
+| `lib/prompt.ts` | Lettura dei tre prompt di default |
+| `app/api/generate/route.ts` | Generazione di una immagine (tutte le modalità) |
 | `app/page.tsx`, `app/Generator.tsx`, `app/components/*` | Interfaccia |

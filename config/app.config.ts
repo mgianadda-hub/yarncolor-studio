@@ -53,6 +53,16 @@ export const appConfig = {
     maxPercent: 50,
   },
 
+  /**
+   * Scheda "Multipack": tre spazi fissi per i master, ognuno facoltativo (serve almeno un master).
+   * Il tag entra nel nome del file scaricato (es. gomitolo-5pz-navy.jpg).
+   */
+  packs: [
+    { label: "Pack 2 pz", tag: "2pz" },
+    { label: "Pack 5 pz", tag: "5pz" },
+    { label: "Pack 10 pz", tag: "10pz" },
+  ],
+
   /** Autenticazione Google tramite AWS Cognito (solo in produzione, vedi CLAUDE.md). */
   auth: {
     /** Indirizzo di produzione: base della Callback URL e della Sign-out URL registrate in Cognito. */

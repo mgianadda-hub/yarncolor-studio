@@ -54,6 +54,11 @@ type Props = {
   canRetry: boolean;
   fileName: (index: number) => string;
   onRetry: (index: number) => void;
+  /**
+   * Riquadri fissi con etichetta (scheda "Multipack": un riquadro per pack, allineato agli spazi di
+   * caricamento). `resultIndex` null = nessun master per quel riquadro. Senza `tiles`: "Immagine 1, 2, 3".
+   */
+  tiles?: { label: string; resultIndex: number | null }[];
 };
 
 function formatSize(size: string) {
@@ -74,9 +79,11 @@ function elapsed(startedAt: number) {
   return Math.max(0, Math.round((Date.now() - startedAt) / 1000));
 }
 
-export default function ResultsSection({ results, canRetry, fileName, onRetry }: Props) {
+export default function ResultsSection({ results, canRetry, fileName, onRetry, tiles }: Props) {
   const [zoomed, setZoomed] = useState<number | null>(null);
-  const single = results.length === 1;
+  const single = results.length === 1 && !tiles;
+  const tileList = tiles ?? results.map((_, i) => ({ label: `Immagine ${i + 1}`, resultIndex: i }));
+  const labelOf = (index: number) => tileList.find((t) => t.resultIndex === index)?.label ?? `Immagine ${index + 1}`;
   const zoomedResult = zoomed !== null ? results[zoomed] : null;
 
   const done = results.filter((r) => r.status === "ok");
@@ -136,17 +143,33 @@ export default function ResultsSection({ results, canRetry, fileName, onRetry }:
       )}
 
       {!single && results.length > 0 && (
-        <div className="results-grid">
-          {results.map((r, i) => (
-            <article key={i} className="result-tile">
+        <div className={`results-grid${tiles ? " is-fixed" : ""}`}>
+          {tileList.map(({ label, resultIndex }) => {
+            if (resultIndex === null) {
+              return (
+                <article key={label} className="result-tile is-empty">
+                  <header>
+                    <h3>{label}</h3>
+                  </header>
+                  <div className="result-image placeholder compact">
+                    <span>Nessun master caricato</span>
+                  </div>
+                </article>
+              );
+            }
+            const i = resultIndex;
+            const r = results[i];
+            if (!r) return null;
+            return (
+            <article key={label} className="result-tile">
               <header>
-                <h3>Immagine {i + 1}</h3>
+                <h3>{label}</h3>
                 {r.status === "ok" && (
                   <button
                     type="button"
                     className="icon-btn"
                     onClick={() => setZoomed(i)}
-                    aria-label={`Ingrandisci immagine ${i + 1}`}
+                    aria-label={`Ingrandisci ${label.toLowerCase()}`}
                   >
                     <ZoomIn size={18} />
                   </button>
@@ -182,7 +205,8 @@ export default function ResultsSection({ results, canRetry, fileName, onRetry }:
                 )}
               </footer>
             </article>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -190,7 +214,7 @@ export default function ResultsSection({ results, canRetry, fileName, onRetry }:
         <Lightbox
           url={zoomedResult.url}
           title={
-            (results.length > 1 ? `Immagine ${zoomed + 1}` : "Immagine generata") +
+            (single ? "Immagine generata" : labelOf(zoomed)) +
             (zoomedResult.hex ? ` · ${zoomedResult.hex}` : "")
           }
           downloadName={fileName(zoomed)}

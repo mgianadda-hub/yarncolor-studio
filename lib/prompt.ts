@@ -15,3 +15,8 @@ export function readDefaultPrompt(): Promise<string> {
 export function readHexPrompt(): Promise<string> {
   return readConfigFile("hex-prompt.txt");
 }
+
+/** Prompt di default della scheda "Multipack" (config/pack-prompt.txt), così com'è. */
+export function readPackPrompt(): Promise<string> {
+  return readConfigFile("pack-prompt.txt");
+}
