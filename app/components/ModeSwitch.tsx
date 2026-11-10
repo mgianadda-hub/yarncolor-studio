@@ -1,12 +1,13 @@
 "use client";
 
-import { Images, Palette } from "lucide-react";
+import { Boxes, Images, Palette } from "lucide-react";
 
-export type Mode = "sample" | "hex";
+export type Mode = "sample" | "hex" | "pack";
 
 const MODES: { id: Mode; label: string; hint: string; Icon: typeof Images }[] = [
   { id: "sample", label: "Da campione", hint: "Master + foto del filato", Icon: Images },
   { id: "hex", label: "Da codice colore", hint: "Master + codice esadecimale", Icon: Palette },
+  { id: "pack", label: "Multipack", hint: "Pack 2/5/10 pz + foto del filato", Icon: Boxes },
 ];
 
 /** Selettore della modalità di ricolorazione. */

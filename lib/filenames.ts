@@ -46,3 +46,26 @@ export function hexDownloadName(
   if (total > 1 && !variation) parts.push(String(index + 1));
   return `${parts.join("_")}.jpg`;
 }
+
+/**
+ * Scheda "Multipack": <master>-<tag pack>[-<nome colore>].jpg (es. gomitolo-5pz-navy.jpg, gomitolo-5pz.jpg).
+ * Se il nome del master contiene già il tag del pack (es. "gomitolo_5pz"), il tag non viene ripetuto.
+ */
+export function packDownloadName(masterName: string, packTag: string, colorName: string): string {
+  const base = baseName(masterName) || "immagine";
+  const parts = [base];
+  if (!hasPackTag(base, packTag)) parts.push(packTag);
+  const color = slugifyColorName(colorName);
+  if (color) parts.push(color);
+  return `${parts.join("-")}.jpg`;
+}
+
+/**
+ * Vero se il nome contiene già il tag, anche con maiuscole o separatore ("5pz", "5PZ", "5 pz", "5_pz").
+ * Una cifra prima del numero indica un altro pack ("15pz" non contiene "5pz").
+ */
+function hasPackTag(name: string, tag: string): boolean {
+  const match = /^(\d+)pz$/.exec(tag);
+  if (!match) return name.toLowerCase().includes(tag.toLowerCase());
+  return new RegExp(`(^|\\D)${match[1]}[\\s_-]?pz`, "i").test(name);
+}

@@ -998,7 +998,7 @@ textarea {
 
 .mode-switch {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   padding: 6px;
   border: 1px solid var(--border);
@@ -1010,7 +1010,7 @@ textarea {
 @media (min-width: 720px) {
   .mode-switch {
     width: fit-content;
-    grid-template-columns: repeat(2, minmax(240px, auto));
+    grid-template-columns: repeat(3, minmax(220px, auto));
   }
 }
 
@@ -1368,21 +1368,133 @@ code {
   color: var(--text);
 }
 
+/* ---------- Multipack ---------- */
+
+/* In Multipack pack e colore occupano tutta la larghezza: le colonne dei pack si allineano ai risultati. */
+.inputs-grid.is-pack {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.inputs-grid.is-pack .upload-card .preview-box {
+  max-height: 320px;
+}
+
+.pack-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+
+.pack-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.pack-slot.is-dragging {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft-2);
+}
+
+.pack-slot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.pack-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.pack-slot.has-image .pack-label {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.icon-btn-sm {
+  width: 32px;
+  height: 32px;
+  box-shadow: none;
+}
+
+.dropzone-sm {
+  padding: 10px;
+}
+
+.pack-meta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pack-output {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+  color: var(--accent);
+  font-size: 0.88rem;
+}
+
+.pack-output strong {
+  color: var(--text);
+}
+
+.pack-count {
+  margin: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.results-grid.is-fixed {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+
+.result-tile.is-empty {
+  border-style: dashed;
+  background: var(--surface-2);
+}
+
+.result-tile.is-empty .result-image {
+  background: transparent;
+  border: 0;
+}
+
 /* ---------- Schermi piccoli e touch (in fondo: sovrascrivono le regole base) ---------- */
 
 @media (max-width: 520px) {
   .mode-option {
-    padding: 8px 10px;
-    gap: 10px;
+    justify-content: center;
+    padding: 10px 6px;
+    text-align: center;
   }
 
-  .mode-text span {
+  .mode-text span,
+  .mode-icon {
     display: none;
   }
 
-  .mode-icon {
-    width: 32px;
-    height: 32px;
+  .mode-text strong {
+    font-size: 0.88rem;
+    line-height: 1.25;
   }
 }
 

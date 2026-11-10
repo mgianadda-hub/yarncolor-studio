@@ -11,9 +11,10 @@ import {
   RotateCcw,
   Settings,
   Sparkles,
+  Tag,
 } from "lucide-react";
 import { appConfig } from "@/config/app.config";
-import { hexDownloadName, sampleDownloadName } from "@/lib/filenames";
+import { hexDownloadName, packDownloadName, sampleDownloadName } from "@/lib/filenames";
 import { TARGET_HEX_PLACEHOLDER, normalizeHex } from "@/lib/hex";
 import { lightnessVariants } from "@/lib/oklch";
 import { computeOutputSize, readImageDimensions } from "@/lib/output-size";
@@ -21,6 +22,7 @@ import { formatMB, validateUploads } from "@/lib/upload";
 import ColorCard from "./components/ColorCard";
 import HexVariation, { variantLabel } from "./components/HexVariation";
 import ModeSwitch, { type Mode } from "./components/ModeSwitch";
+import PackCard from "./components/PackCard";
 import ResultsSection, { type Result } from "./components/ResultsSection";
 import UploadCard, { type SelectedImage } from "./components/UploadCard";
 
@@ -37,6 +39,14 @@ type Job = {
   hexLabels?: string[];
   variation?: boolean;
   colorName?: string;
+  /**
+   * Solo scheda "Multipack": per ogni chiamata il proprio master, la size calcolata su quel master,
+   * il tag del pack (per il nome file) e la posizione dello spazio di caricamento (0, 1, 2).
+   */
+  slotMasters?: File[];
+  slotSizes?: (string | undefined)[];
+  packTags?: string[];
+  packSlots?: number[];
   prompt: string;
   model: string;
   size?: string;
@@ -45,8 +55,10 @@ type Job = {
 async function generateOne(job: Job, index: number): Promise<{ blob: Blob; size: string }> {
   const form = new FormData();
   form.append("mode", job.mode);
-  form.append("master", job.master);
-  if (job.mode === "sample" && job.destination) form.append("destination", job.destination);
+  form.append("master", job.slotMasters?.[index] ?? job.master);
+  if ((job.mode === "sample" || job.mode === "pack") && job.destination) {
+    form.append("destination", job.destination);
+  }
   // Il nome colore non viene mai inviato: serve solo per il nome del file.
   const hex = job.hexes?.[index];
   if (job.mode === "hex" && hex) form.append("hex", hex);
@@ -73,6 +85,13 @@ async function generateOne(job: Job, index: number): Promise<{ blob: Blob; size:
 }
 
 function fileNameFor(job: Job, index: number, total: number): string {
+  if (job.mode === "pack") {
+    return packDownloadName(
+      job.slotMasters?.[index]?.name ?? job.master.name,
+      job.packTags?.[index] ?? "",
+      job.colorName ?? "",
+    );
+  }
   return job.mode === "hex"
     ? hexDownloadName(
         job.master.name,
@@ -102,6 +121,12 @@ export default function Generator({
   // Variazione di luminosità (solo "Da codice colore" con 3 immagini).
   const [variationOn, setVariationOn] = useState(false);
   const [percentInput, setPercentInput] = useState(String(appConfig.hexVariation.defaultPercent));
+  // Scheda "Multipack": stato separato dalle altre schede.
+  const [packMasters, setPackMasters] = useState<(SelectedImage | null)[]>(() =>
+    appConfig.packs.map(() => null),
+  );
+  const [packDestination, setPackDestination] = useState<SelectedImage | null>(null);
+  const [packColorName, setPackColorName] = useState("");
   const [results, setResults] = useState<Result[]>([]);
   const [, setTick] = useState(0);
   const resultUrls = useRef<string[]>([]);
@@ -119,16 +144,11 @@ export default function Generator({
     return () => clearInterval(id);
   }, [running]);
 
-  async function selectImage(file: File | null, kind: "master" | "destination") {
-    const setter = kind === "master" ? setMaster : setDestination;
-    setter((prev) => {
-      if (prev) URL.revokeObjectURL(prev.previewUrl);
-      return null;
-    });
-    if (!file) return;
+  /** Anteprima e, per i master, dimensioni e size di output (senza modificare l'immagine). */
+  async function prepareImage(file: File, isMaster: boolean): Promise<SelectedImage> {
     const accepted: readonly string[] = appConfig.acceptedImageTypes;
     const selected: SelectedImage = { file, previewUrl: URL.createObjectURL(file) };
-    if (kind === "master") {
+    if (isMaster) {
       if (!accepted.includes(file.type)) {
         selected.output = { ok: false, error: "Formato non supportato: usa JPG, PNG o WebP." };
       } else {
@@ -140,7 +160,38 @@ export default function Generator({
         }
       }
     }
-    setter(selected);
+    return selected;
+  }
+
+  async function selectImage(file: File | null, kind: "master" | "destination") {
+    const setter = kind === "master" ? setMaster : setDestination;
+    setter((prev) => {
+      if (prev) URL.revokeObjectURL(prev.previewUrl);
+      return null;
+    });
+    if (!file) return;
+    setter(await prepareImage(file, kind === "master"));
+  }
+
+  async function selectPackMaster(index: number, file: File | null) {
+    const update = (value: SelectedImage | null) =>
+      setPackMasters((prev) =>
+        prev.map((img, i) => {
+          if (i !== index) return img;
+          if (img) URL.revokeObjectURL(img.previewUrl);
+          return value;
+        }),
+      );
+    update(null);
+    if (file) update(await prepareImage(file, true));
+  }
+
+  async function selectPackDestination(file: File | null) {
+    setPackDestination((prev) => {
+      if (prev) URL.revokeObjectURL(prev.previewUrl);
+      return null;
+    });
+    if (file) setPackDestination(await prepareImage(file, false));
   }
 
   const isHex = mode === "hex";
@@ -192,12 +243,44 @@ export default function Generator({
   const canGenerate = !missing && !uploadError && master?.output?.ok === true && !running;
   const inputBytes = (master?.file.size ?? 0) + (!isHex ? (destination?.file.size ?? 0) : 0);
 
+  // Scheda "Multipack": una chiamata per ogni master caricato, ciascuna con la destinazione.
+  const isPack = mode === "pack";
+  const activePacks = appConfig.packs
+    .map((pack, slot) => ({ ...pack, slot, image: packMasters[slot] }))
+    .filter((p): p is typeof p & { image: SelectedImage } => p.image !== null);
+  const packUploadError = packDestination
+    ? (activePacks
+        .map((p) => {
+          const error = validateUploads(p.image.file, packDestination.file);
+          return error ? `${p.label}: ${error}` : null;
+        })
+        .find(Boolean) ?? null)
+    : null;
+  const packInvalidMaster = activePacks.find((p) => p.image.output?.ok !== true);
+  const packMissing =
+    activePacks.length === 0
+      ? "Carica almeno un'immagine master (Pack 2, 5 o 10 pz)."
+      : !packDestination
+        ? "Carica l'immagine con il colore destinazione."
+        : packInvalidMaster
+          ? `${packInvalidMaster.label}: il master non può essere usato.`
+          : !prompt.trim()
+            ? "Il prompt è vuoto."
+            : null;
+  const canGeneratePack = isPack && !packMissing && !packUploadError && !running;
+  const packInputBytes = Math.max(
+    0,
+    ...activePacks.map((p) => p.image.file.size + (packDestination?.file.size ?? 0)),
+  );
+  const packFileNames = activePacks.map((p) => packDownloadName(p.image.file.name, p.tag, packColorName));
+
   function setResult(index: number, result: Result) {
     setResults((prev) => prev.map((r, i) => (i === index ? result : r)));
   }
 
   async function runSlot(index: number, current: Job) {
-    const { model, size } = current;
+    const { model } = current;
+    const size = current.slotSizes ? current.slotSizes[index] : current.size;
     const hex = current.hexes?.[index];
     const hexLabel = current.variation ? current.hexLabels?.[index] : undefined;
     const startedAt = Date.now();
@@ -262,6 +345,50 @@ export default function Generator({
     for (let i = 0; i < count; i++) void runSlot(i, current);
   }
 
+  function generatePack() {
+    if (!canGeneratePack || !packDestination) return;
+    resultUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    resultUrls.current = [];
+    const current: Job = {
+      mode: "pack",
+      master: activePacks[0].image.file,
+      destination: packDestination.file,
+      slotMasters: activePacks.map((p) => p.image.file),
+      slotSizes: activePacks.map((p) => (p.image.output?.ok ? p.image.output.size : undefined)),
+      packTags: activePacks.map((p) => p.tag),
+      packSlots: activePacks.map((p) => p.slot),
+      colorName: packColorName,
+      prompt,
+      model,
+    };
+    setJob(current);
+    const startedAt = Date.now();
+    setResults(
+      activePacks.map((_, i) => ({ status: "pending", startedAt, model, size: current.slotSizes?.[i] })),
+    );
+    // Una chiamata per ogni master caricato, in parallelo: [master del pack, colore destinazione].
+    activePacks.forEach((_, i) => void runSlot(i, current));
+  }
+
+  /** Pulsante Genera e messaggi: valori della scheda attiva (Multipack o le altre due). */
+  const gen = isPack
+    ? {
+        enabled: canGeneratePack,
+        count: activePacks.length,
+        uploadError: packUploadError,
+        missing: packMissing,
+        hintIsError: !!packUploadError,
+        bytes: packInputBytes,
+      }
+    : {
+        enabled: canGenerate,
+        count,
+        uploadError,
+        missing,
+        hintIsError: !!(uploadError || missingPlaceholder),
+        bytes: inputBytes,
+      };
+
   const fileNameExamples =
     isHex && slotColors && !(variationActive && !variation?.ok)
       ? slotColors.map((c, i) =>
@@ -273,6 +400,45 @@ export default function Generator({
     <div className="stack-lg">
       <ModeSwitch mode={mode} disabled={running} onChange={setMode} />
 
+      {isPack ? (
+        <div className="inputs-grid is-pack">
+          <PackCard images={packMasters} disabled={running} onSelect={selectPackMaster} />
+          <UploadCard
+            step={2}
+            title="Colore destinazione"
+            hint="Il dettaglio del filato con il colore da applicare a tutti i pack."
+            image={packDestination}
+            disabled={running}
+            onSelect={selectPackDestination}
+          >
+            <div className="field">
+              <label htmlFor="pack-color-name" className="field-label">
+                <Tag size={16} aria-hidden="true" /> Nome colore <span className="optional">(facoltativo)</span>
+              </label>
+              <input
+                id="pack-color-name"
+                className="input"
+                placeholder="es. blu navy"
+                value={packColorName}
+                maxLength={60}
+                autoComplete="off"
+                disabled={running}
+                onChange={(e) => setPackColorName(e.target.value)}
+              />
+              <p className="hint-row">Serve solo per il nome dei file, non viene inviato al modello.</p>
+              {packFileNames.length > 0 && (
+                <ul className="file-examples" aria-label="Nomi dei file">
+                  {packFileNames.map((name) => (
+                    <li key={name} className="mono break">
+                      {name}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </UploadCard>
+        </div>
+      ) : (
       <div className="inputs-grid">
         <UploadCard
           step={1}
@@ -305,6 +471,7 @@ export default function Generator({
           />
         )}
       </div>
+      )}
 
       <section className="card workbench">
         <div className="prompt-panel">
@@ -348,7 +515,7 @@ export default function Generator({
           )}
           <p className="hint-row">
             {prompt === defaultPrompt ? "Prompt di default" : "Prompt modificato"}
-            {isHex ? " (Da codice colore)" : " (Da campione)"} · {prompt.length.toLocaleString("it-IT")}{" "}
+            {isHex ? " (Da codice colore)" : isPack ? " (Multipack)" : " (Da campione)"} · {prompt.length.toLocaleString("it-IT")}{" "}
             caratteri
             {isHex && !missingPlaceholder && (
               <>
@@ -390,6 +557,16 @@ export default function Generator({
             </div>
           </div>
 
+          {isPack ? (
+            <div className="field">
+              <span className="field-label">
+                <ImageIcon size={16} aria-hidden="true" /> Numero di immagini
+              </span>
+              <p className="pack-count">
+                Una per ogni pack caricato: <strong>{activePacks.length}</strong>
+              </p>
+            </div>
+          ) : (
           <fieldset className="field">
             <legend className="field-label">
               <ImageIcon size={16} aria-hidden="true" /> Numero di immagini
@@ -410,6 +587,7 @@ export default function Generator({
               ))}
             </div>
           </fieldset>
+          )}
 
           {variationAvailable && (
             <HexVariation
@@ -427,8 +605,8 @@ export default function Generator({
             <button
               type="button"
               className="btn btn-primary btn-lg btn-block"
-              onClick={generate}
-              disabled={!canGenerate}
+              onClick={isPack ? generatePack : generate}
+              disabled={!gen.enabled}
             >
               {running ? (
                 <>
@@ -437,19 +615,24 @@ export default function Generator({
               ) : (
                 <>
                   <Sparkles size={20} aria-hidden="true" />
-                  {count === 1 ? "Genera immagine" : `Genera ${count} immagini`}
+                  {gen.count === 1
+                    ? "Genera immagine"
+                    : gen.count > 1
+                      ? `Genera ${gen.count} immagini`
+                      : "Genera immagini"}
                   <ChevronRight size={20} aria-hidden="true" />
                 </>
               )}
             </button>
-            {!running && (uploadError || missing) && (
-              <p className={`hint-row center${uploadError || missingPlaceholder ? " error" : ""}`}>
-                {uploadError ?? missing}
+            {!running && (gen.uploadError || gen.missing) && (
+              <p className={`hint-row center${gen.hintIsError ? " error" : ""}`}>
+                {gen.uploadError ?? gen.missing}
               </p>
             )}
-            {!running && !uploadError && !missing && (
+            {!running && !gen.uploadError && !gen.missing && (
               <p className="hint-row center">
-                Input: {formatMB(inputBytes)} su {formatMB(appConfig.maxUploadTotalBytes)}
+                {isPack ? "Input per chiamata" : "Input"}: {formatMB(gen.bytes)} su{" "}
+                {formatMB(appConfig.maxUploadTotalBytes)}
               </p>
             )}
           </div>
@@ -461,6 +644,14 @@ export default function Generator({
         canRetry={!running && !!job}
         fileName={(i) => (job ? fileNameFor(job, i, results.length) : "immagine.jpg")}
         onRetry={(i) => job && void runSlot(i, job)}
+        tiles={
+          job?.mode === "pack"
+            ? appConfig.packs.map((pack, slot) => {
+                const index = job.packSlots?.indexOf(slot) ?? -1;
+                return { label: pack.label, resultIndex: index >= 0 ? index : null };
+              })
+            : undefined
+        }
       />
     </div>
   );

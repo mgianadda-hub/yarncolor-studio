@@ -1,13 +1,17 @@
 import { LogOut } from "lucide-react";
 import { isAuthEnabled } from "@/lib/auth/config";
-import { readDefaultPrompt, readHexPrompt } from "@/lib/prompt";
+import { readDefaultPrompt, readHexPrompt, readPackPrompt } from "@/lib/prompt";
 import Logo from "./components/Logo";
 import Generator from "./Generator";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [samplePrompt, hexPrompt] = await Promise.all([readDefaultPrompt(), readHexPrompt()]);
+  const [samplePrompt, hexPrompt, packPrompt] = await Promise.all([
+    readDefaultPrompt(),
+    readHexPrompt(),
+    readPackPrompt(),
+  ]);
   return (
     <main className="page">
       <header className="app-header">
@@ -28,7 +32,7 @@ export default async function HomePage() {
           </form>
         )}
       </header>
-      <Generator defaultPrompts={{ sample: samplePrompt, hex: hexPrompt }} />
+      <Generator defaultPrompts={{ sample: samplePrompt, hex: hexPrompt, pack: packPrompt }} />
     </main>
   );
 }

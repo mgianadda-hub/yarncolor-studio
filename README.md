@@ -13,6 +13,7 @@ Le decisioni di progetto (parametri API, modelli, interfaccia, deploy) sono racc
 |---|---|
 | `config/default-prompt.txt` | Prompt di default della modalità "Da campione" |
 | `config/hex-prompt.txt` | Prompt di default della modalità "Da codice colore" (con `{TARGET_HEX}`) |
+| `config/pack-prompt.txt` | Prompt di default della scheda "Multipack" |
 | `config/app.config.ts` | Modelli selezionabili, lato lungo dell'output (`outputLongSide`, 1504), qualità, formato JPEG e compressione, limiti di upload |
 
 Variabili d'ambiente (vedi `.env.example`), da impostare su Vercel:
@@ -39,7 +40,7 @@ Limiti dei modelli: lati multipli di 16, rapporto massimo 3:1, massimo 3840×216
 
 ## Funzionamento
 
-Due modalità, selezionabili in alto:
+Tre modalità, selezionabili in alto:
 
 - **Da campione**: master + immagine destinazione (dettaglio del filato). File: `<master>-<destinazione>.jpg`
   (con 3 immagini `-1`, `-2`, `-3`).
@@ -47,6 +48,10 @@ Due modalità, selezionabili in alto:
   nome del file. Nel prompt `{TARGET_HEX}` viene sostituito lato server. Con 3 immagini si può variare la
   luminosità (OKLCH, default ±5%). File: `<master>_<HEX usato>[_<nome colore>].jpg` (con 3 immagini senza
   variazione `_1`, `_2`, `_3`).
+
+- **Multipack**: fino a tre master fissi (Pack 2, 5, 10 pz, almeno uno) + immagine destinazione e nome colore
+  facoltativo; un'immagine per ogni pack caricato. File: `<master>-<2pz|5pz|10pz>[-<nome colore>].jpg` (il tag non
+  si ripete se è già nel nome del master).
 
 Prompt di default modificabili solo per la generazione in corso, modello (default `gpt-image-2.5-sunburst`),
 1 o 3 immagini (una chiamata per immagine, in parallelo). Dettagli completi in [`CLAUDE.md`](CLAUDE.md).

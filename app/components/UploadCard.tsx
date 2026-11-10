@@ -22,9 +22,12 @@ type Props = {
   disabled: boolean;
   showSizes?: boolean;
   onSelect: (file: File | null) => void;
+  /** Contenuto aggiuntivo sotto i dati del file (usato dalla scheda "Multipack" per il nome colore). */
+  children?: React.ReactNode;
 };
 
-export default function UploadCard({ step, title, hint, image, disabled, showSizes, onSelect }: Props) {
+export default function UploadCard(props: Props) {
+  const { step, title, hint, image, disabled, showSizes, onSelect, children } = props;
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const inputId = `upload-${step}`;
@@ -140,6 +143,7 @@ export default function UploadCard({ step, title, hint, image, disabled, showSiz
               </div>
             )
           )}
+          {children}
         </div>
       </div>
     </section>
