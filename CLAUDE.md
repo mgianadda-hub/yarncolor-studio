@@ -24,7 +24,8 @@ L'app **non elabora le immagini**: le inoltra così come sono e mostra il risult
   - "Multipack": **[master del pack, destinazione]**, in quest'ordine, una chiamata per ogni pack caricato.
 - `quality: "high"`.
 - Output: `output_format: "jpeg"`, `output_compression: 80`.
-- `input_fidelity`: **non va passato** (per gpt-image-2 la documentazione dice di ometterlo).
+- `input_fidelity`: **non va passato** (la documentazione lo prevede solo per `gpt-image-1.5` e `1-mini`;
+  per gpt-image-2 dice di ometterlo).
 - `n: 1`: **una immagine per chiamata**. Scegliendo 3 immagini il browser fa **3 chiamate in parallelo**
   a `/api/generate`, tutte partendo dal master (e dalla destinazione, in modalità "Da campione").
 - La route `/api/generate` restituisce il JPEG in binario (`image/jpeg`, header `X-Output-Size`),
@@ -38,14 +39,21 @@ L'app **non elabora le immagini**: le inoltra così come sono e mostra il risult
 
 ## Modelli
 
-- Preselezionato: **`gpt-image-2.5-sunburst`** (più veloce e risultati migliori nei test).
+- Preselezionato: **`gpt-image-2.6-flare`** (decisione dell'utente, 11/11/2026).
 - Ordine nel selettore (con la nota mostrata accanto):
-  1. `gpt-image-2.5-sunburst` — "default, più dettaglio"
-  2. `gpt-image-2.5-flare` — "più veloce"
-  3. `gpt-image-2`
+  1. `gpt-image-2.6-flare` — "default"
+  2. `gpt-image-2.6-sunburst` — "più dettaglio, più lento"
+  3. `gpt-image-2.5-flare` — "versione precedente"
+- `gpt-image-2` e `gpt-image-2.5-sunburst` sono stati **rimossi** dal selettore.
 - Definiti in `config/app.config.ts` (`models`, `defaultModel`); la route accetta solo questi.
-- Smoke test reale (anteprima Vercel, master 1536×1024 → 1504×1008): sunburst ~30 s, flare ~17 s,
-  gpt-image-2 ~75 s; JPEG ~0,2 MB.
+- **Verifica dei modelli 2.6** (SDK `openai` 7.55.0 del 10/11/2026; il sito di documentazione OpenAI non è
+  raggiungibile dall'ambiente di Claude): sono accettati da `images.edit`; `quality: "high"` e `output_format: "jpeg"`
+  con `output_compression` valgono per tutti i modelli GPT Image; `input_fidelity` resta non passato. La **dimensione
+  libera** (`WIDTHxHEIGHT`) è documentata solo per gpt-image-2 e 2.5, non esplicitamente per la 2.6 (fonti non ufficiali
+  riportano gli stessi limiti): va confermata con una generazione reale. Per la 2.6 non esistono ancora snapshot con data.
+  L'SDK del progetto resta alla 7.34.0 (il campo `model` accetta qualsiasi stringa).
+- Smoke test reale precedente (anteprima Vercel, master 1536×1024 → 1504×1008): 2.5-sunburst ~30 s, 2.5-flare ~17 s,
+  gpt-image-2 ~75 s; JPEG ~0,2 MB. Tempi della 2.6 non ancora misurati.
 
 ## Dimensione output
 
@@ -53,8 +61,8 @@ L'app **non elabora le immagini**: le inoltra così come sono e mostra il risult
   lato corto proporzionale **arrotondato al multiplo di 16 più vicino**. Master quadrato → 1504×1504.
 - Le dimensioni del master si leggono dall'intestazione del file (`image-size`), senza modificarlo;
   l'orientamento EXIF viene applicato come fa il browser.
-- Limiti dei modelli (uguali per i tre, da SDK `openai` 7.34.0): lati multipli di 16, rapporto massimo 3:1,
-  massimo 3840×2160, oltre 2560×1440 la risoluzione è "experimental".
+- Limiti dei modelli (documentati per gpt-image-2 e 2.5; per la 2.6 da confermare, vedi "Modelli"): lati multipli
+  di 16, rapporto massimo 3:1, massimo 3840×2160, oltre 2560×1440 la risoluzione è "experimental".
 - Se il master supera i limiti (es. rapporto oltre 3:1) l'app mostra un **messaggio chiaro** e non genera.
 - Logica in `lib/output-size.ts`, usata sia dal browser (per mostrare la size) sia dal server (che la ricalcola).
 

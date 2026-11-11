@@ -11,18 +11,18 @@ export type ImageModelOption = {
 export const appConfig = {
   /** Modelli selezionabili, nell'ordine in cui compaiono nel selettore. */
   models: [
-    { id: "gpt-image-2.5-sunburst", note: "default, più dettaglio" },
-    { id: "gpt-image-2.5-flare", note: "più veloce" },
-    { id: "gpt-image-2" },
+    { id: "gpt-image-2.6-flare", note: "default" },
+    { id: "gpt-image-2.6-sunburst", note: "più dettaglio, più lento" },
+    { id: "gpt-image-2.5-flare", note: "versione precedente" },
   ] satisfies ImageModelOption[],
-  defaultModel: "gpt-image-2.5-sunburst",
+  defaultModel: "gpt-image-2.6-flare",
 
   /** Lato lungo dell'immagine generata, in pixel. Il lato corto è proporzionale al master. */
   outputLongSide: 1504,
 
   /**
-   * Vincoli di `size` dell'endpoint images/edits, uguali per gpt-image-2,
-   * gpt-image-2.5-sunburst e gpt-image-2.5-flare (SDK openai 7.34.0):
+   * Vincoli di `size` dell'endpoint images/edits documentati per gpt-image-2 e 2.5 (SDK openai 7.34.0
+   * e 7.55.0); per la 2.6 l'SDK non li elenca esplicitamente, fonti non ufficiali riportano gli stessi:
    * lati multipli di 16, rapporto tra 1:3 e 3:1, risoluzione massima 3840x2160,
    * oltre 2560x1440 la risoluzione è "experimental".
    */
