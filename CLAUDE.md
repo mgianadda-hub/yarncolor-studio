@@ -39,12 +39,14 @@ L'app **non elabora le immagini**: le inoltra così come sono e mostra il risult
 
 ## Modelli
 
-- Preselezionato: **`gpt-image-2.6-flare`** (decisione dell'utente, 11/11/2026).
+- Preselezionato: **`gpt-image-2.6-sunburst`** (decisione dell'utente, 11/11/2026: il default precedente era
+  `gpt-image-2.5-sunburst`, si passa alla sua versione 2.6).
 - Ordine nel selettore (con la nota mostrata accanto):
-  1. `gpt-image-2.6-flare` — "default"
-  2. `gpt-image-2.6-sunburst` — "più dettaglio, più lento"
-  3. `gpt-image-2.5-flare` — "versione precedente"
-- `gpt-image-2` e `gpt-image-2.5-sunburst` sono stati **rimossi** dal selettore.
+  1. `gpt-image-2.6-sunburst` — "default, più dettaglio"
+  2. `gpt-image-2.6-flare` — "più veloce"
+  3. `gpt-image-2.5-sunburst` — "versione precedente"
+- `gpt-image-2` e `gpt-image-2.5-flare` sono stati **rimossi** dal selettore (la PR #9 aveva per errore
+  `gpt-image-2.6-flare` come default e `gpt-image-2.5-flare` come versione precedente; corretto subito dopo).
 - Definiti in `config/app.config.ts` (`models`, `defaultModel`); la route accetta solo questi.
 - **Verifica dei modelli 2.6** (SDK `openai` 7.55.0 del 10/11/2026; il sito di documentazione OpenAI non è
   raggiungibile dall'ambiente di Claude): sono accettati da `images.edit`; `quality: "high"` e `output_format: "jpeg"`

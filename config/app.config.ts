@@ -11,11 +11,11 @@ export type ImageModelOption = {
 export const appConfig = {
   /** Modelli selezionabili, nell'ordine in cui compaiono nel selettore. */
   models: [
-    { id: "gpt-image-2.6-flare", note: "default" },
-    { id: "gpt-image-2.6-sunburst", note: "più dettaglio, più lento" },
-    { id: "gpt-image-2.5-flare", note: "versione precedente" },
+    { id: "gpt-image-2.6-sunburst", note: "default, più dettaglio" },
+    { id: "gpt-image-2.6-flare", note: "più veloce" },
+    { id: "gpt-image-2.5-sunburst", note: "versione precedente" },
   ] satisfies ImageModelOption[],
-  defaultModel: "gpt-image-2.6-flare",
+  defaultModel: "gpt-image-2.6-sunburst",
 
   /** Lato lungo dell'immagine generata, in pixel. Il lato corto è proporzionale al master. */
   outputLongSide: 1504,
