@@ -53,7 +53,7 @@ Tre modalità, selezionabili in alto:
   facoltativo; un'immagine per ogni pack caricato. File: `<master>-<2pz|5pz|10pz>[-<nome colore>].jpg` (il tag non
   si ripete se è già nel nome del master).
 
-Prompt di default modificabili solo per la generazione in corso, modello (default `gpt-image-2.6-flare`),
+Prompt di default modificabili solo per la generazione in corso, modello (default `gpt-image-2.6-sunburst`),
 1 o 3 immagini (una chiamata per immagine, in parallelo). Dettagli completi in [`CLAUDE.md`](CLAUDE.md).
 
 ## Sviluppo
